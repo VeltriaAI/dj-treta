@@ -412,30 +412,53 @@ class Deck:
 
     def match_bpm(self, target_bpm):
         """
-        Beat-match this deck to a target BPM by adjusting playback speed.
-        No resampling needed — speed change happens in real-time in get_block().
-        For small BPM diffs (<8%), pitch change is barely noticeable.
+        Beat-match by PRE-STRETCHING the audio buffer to the target BPM.
+        Uses numpy interp for fast resampling. After this, speed=1.0 and
+        get_block() takes the fast path. Beats are physically aligned in the buffer.
         """
         if self.bpm == 0 or target_bpm == 0:
             return
 
         bpm_diff = abs(self.bpm - target_bpm)
-        if bpm_diff < 0.5:
+        if bpm_diff < 0.3:
             self.speed = 1.0
             self.effective_bpm = self.bpm
             return  # close enough
 
-        # Only adjust if within 8% — beyond that it sounds unnatural
+        # Only stretch if within 8%
         if bpm_diff / self.bpm > 0.08:
-            print(f"[Deck {self.number}] BPM diff too large ({self.bpm} → {target_bpm}), playing at original speed")
+            print(f"[Deck {self.number}] BPM diff too large ({self.bpm} → {target_bpm}), skipping")
             self.speed = 1.0
             self.effective_bpm = self.bpm
             return
 
-        # Speed = target/original. If track is 123 BPM and target is 126, speed = 1.024
-        self.speed = target_bpm / self.bpm
+        ratio = self.bpm / target_bpm  # >1 = slow down (lower BPM), <1 = speed up
+        new_len = int(len(self.audio) * ratio)
+
+        print(f"[Deck {self.number}] Pre-stretching: {self.bpm} → {target_bpm} BPM (ratio={ratio:.4f}, {len(self.audio)} → {new_len} samples)")
+
+        # Vectorized resampling with numpy interp — fast and accurate
+        old_indices = np.arange(len(self.audio), dtype=np.float64)
+        new_indices = np.linspace(0, len(self.audio) - 1, new_len)
+
+        stretched = np.zeros((new_len, CHANNELS), dtype=np.float32)
+        for ch in range(CHANNELS):
+            stretched[:, ch] = np.interp(new_indices, old_indices, self.audio[:, ch]).astype(np.float32)
+
+        self.audio = stretched
+        self.speed = 1.0  # No real-time speed adjustment needed
         self.effective_bpm = target_bpm
-        print(f"[Deck {self.number}] Beat matched: {self.bpm} → {target_bpm} BPM (speed: {self.speed:.3f}x)")
+        self.duration = len(self.audio) / SAMPLE_RATE
+
+        # Recalculate beat positions for new tempo
+        if self.beat_positions:
+            self.beat_positions = [int(b * ratio) for b in self.beat_positions]
+            self.first_beat = self.beat_positions[0] if self.beat_positions else 0
+            if self.beat_grid_interval > 0:
+                self.beat_grid_interval = int(self.beat_grid_interval * ratio)
+            self.beat_grid_offset = self.first_beat % self.beat_grid_interval if self.beat_grid_interval > 0 else 0
+
+        print(f"[Deck {self.number}] Stretched: {self.effective_bpm} BPM, {self.duration:.0f}s, grid_interval={self.beat_grid_interval}")
 
     def get_block(self, num_samples):
         """
@@ -475,20 +498,29 @@ class Deck:
                     self.playing = False
             self._fpos += num_samples
         else:
-            # Speed-adjusted playback — linear interpolation between samples
-            # This is how real DJ software does pitch/tempo adjustment
-            for i in range(num_samples):
-                pos = self._fpos + i * self.speed
-                idx = int(pos)
-                frac = pos - idx
+            # Speed-adjusted playback — VECTORIZED linear interpolation
+            # numpy vectorized = ~100x faster than Python for loop
+            indices = self._fpos + np.arange(num_samples, dtype=np.float64) * self.speed
+            int_indices = indices.astype(np.int64)
 
-                if idx >= audio_len - 2:
-                    if not self.looping:
-                        self.playing = False
-                    break
+            # Find how many samples are valid (within audio bounds)
+            valid_mask = int_indices < (audio_len - 1)
+            n_valid = int(np.sum(valid_mask))
 
-                # Linear interpolation between adjacent samples
-                block[i] = self.audio[idx] * (1.0 - frac) + self.audio[idx + 1] * frac
+            if n_valid == 0:
+                if not self.looping:
+                    self.playing = False
+            elif n_valid < num_samples:
+                # Partial block — some samples past end of track
+                ii = int_indices[:n_valid]
+                fracs = (indices[:n_valid] - ii).astype(np.float32).reshape(-1, 1)
+                block[:n_valid] = self.audio[ii] * (1.0 - fracs) + self.audio[ii + 1] * fracs
+                if not self.looping:
+                    self.playing = False
+            else:
+                # Full block — all samples valid
+                fracs = (indices - int_indices).astype(np.float32).reshape(-1, 1)
+                block[:] = self.audio[int_indices] * (1.0 - fracs) + self.audio[int_indices + 1] * fracs
 
             self._fpos += num_samples * self.speed
 
@@ -556,6 +588,7 @@ class DJEngine:
         self._playlist_index = 0
         self._auto_dj = False
         self._transitioning = False
+        self._transition_thread = None
         self._monitor_thread = None
 
     def _audio_callback(self, outdata, frames, time_info, status):
@@ -847,96 +880,87 @@ class DJEngine:
 
     def transition(self, to_deck=2, duration=60.0):
         """
-        DJ transition — simple, reliable, tested.
-        Just a smooth crossfade with safety checks.
+        DJ transition — smooth S-curve crossfade with beat matching.
+        Protected against concurrent transitions.
         """
+        # ── Prevent concurrent transitions ──
+        if self._transitioning:
+            return f"Transition already in progress — ignoring"
+        if self._transition_thread and self._transition_thread.is_alive():
+            return f"Transition thread still running — ignoring"
+
+        # Set flag BEFORE launching thread (prevents race condition)
+        self._transitioning = True
+
         def _run():
-            fps = 20
-            incoming = self.deck2 if to_deck == 2 else self.deck1
-            outgoing = self.deck1 if to_deck == 2 else self.deck2
+            try:
+                fps = 20
+                incoming = self.deck2 if to_deck == 2 else self.deck1
+                outgoing = self.deck1 if to_deck == 2 else self.deck2
 
-            # ── Use requested duration directly ──
-            # The cron already calculates safe duration based on remaining time.
-            # Just use it. The emergency check in the loop handles track ending early.
-            actual_duration = duration
-            if outgoing.audio is not None:
-                out_pos = int(getattr(outgoing, '_fpos', outgoing.position))
-                actual_remaining = (len(outgoing.audio) - out_pos) / SAMPLE_RATE
-                print(f"[DJ Treta] Outgoing has {actual_remaining:.0f}s left, transition={duration:.0f}s")
-                # Only cap if truly impossible (duration > remaining)
-                if actual_duration > actual_remaining:
-                    actual_duration = max(10, actual_remaining - 5)
-                    print(f"[DJ Treta] Capped to {actual_duration:.0f}s")
+                # ── Beat match (pre-stretch audio buffer) ──
+                if outgoing.playing and outgoing.bpm > 0 and incoming.bpm > 0:
+                    incoming.match_bpm(outgoing.bpm)
 
-            # ── Beat match + Phase align ──
-            if outgoing.playing and outgoing.bpm > 0 and incoming.bpm > 0:
-                incoming.match_bpm(outgoing.bpm)
+                    # ── Phase alignment using beat grid ──
+                    out_interval = getattr(outgoing, 'beat_grid_interval', 0)
+                    in_interval = getattr(incoming, 'beat_grid_interval', 0)
 
-                # Phase alignment using exact beat positions from Essentia
-                out_beats = getattr(outgoing, 'beat_positions', [])
-                in_beats = getattr(incoming, 'beat_positions', [])
-                if out_beats and in_beats:
-                    # Find the next beat in the outgoing track after current position
-                    out_pos = int(getattr(outgoing, '_fpos', outgoing.position))
-                    next_out_beat = None
-                    for b in out_beats:
-                        if b > out_pos:
-                            next_out_beat = b
-                            break
+                    if out_interval > 0 and in_interval > 0:
+                        out_pos = int(outgoing._fpos)
+                        # How far into the current beat cycle is outgoing?
+                        out_phase = out_pos % out_interval
 
-                    if next_out_beat is not None:
-                        # Time until next outgoing beat
-                        time_to_beat = (next_out_beat - out_pos) / SAMPLE_RATE
-                        # Start incoming track at its first beat, delayed by the same amount
-                        # So both kicks land at the same moment
-                        in_start = max(0, in_beats[0] - int(time_to_beat * SAMPLE_RATE))
-                        incoming.position = in_start
+                        # Incoming should start where its phase matches outgoing
+                        in_start = incoming.first_beat + (out_interval - out_phase) % in_interval
                         incoming._fpos = float(in_start)
-                        print(f"[DJ Treta] Phase aligned via Essentia beats: incoming starts at {in_start/SAMPLE_RATE:.3f}s")
+                        incoming.position = in_start
+                        print(f"[DJ Treta] Phase aligned: out_phase={out_phase} in_start={in_start} ({in_start/SAMPLE_RATE:.3f}s)")
 
-            # Log
-            log_transition_start(
-                outgoing.track_name, incoming.track_name,
-                2 if to_deck == 1 else 1, to_deck, actual_duration,
-                outgoing.bpm, incoming.bpm, incoming.speed,
-                incoming.position, self.crossfader
-            )
+                # Log
+                log_transition_start(
+                    outgoing.track_name, incoming.track_name,
+                    2 if to_deck == 1 else 1, to_deck, duration,
+                    outgoing.bpm, incoming.bpm, getattr(incoming, 'speed', 1.0),
+                    incoming.position, self.crossfader
+                )
 
-            # Make sure incoming is playing
-            if not incoming.playing and incoming.audio is not None:
-                incoming.playing = True
+                # Make sure incoming is playing
+                if not incoming.playing and incoming.audio is not None:
+                    incoming.playing = True
 
-            cf_start = self.crossfader
-            cf_end = 1.0 if to_deck == 2 else 0.0
-            t_start = time.time()
-            total_steps = int(actual_duration * fps)
+                cf_start = self.crossfader
+                cf_end = 1.0 if to_deck == 2 else 0.0
+                t_start = time.time()
+                total_steps = int(duration * fps)
 
-            # ── Single smooth crossfade with emergency checks ──
-            for i in range(total_steps):
-                # Emergency: outgoing died
-                if not outgoing.playing:
-                    print(f"[DJ Treta] Outgoing ended at step {i}/{total_steps} — completing")
-                    break
+                # ── Smooth S-curve crossfade ──
+                for i in range(total_steps):
+                    if not outgoing.playing:
+                        print(f"[DJ Treta] Outgoing ended at step {i}/{total_steps}")
+                        break
 
-                r = i / total_steps
-                # Smooth S-curve
-                ease = r * r * (3 - 2 * r)
+                    r = i / total_steps
+                    ease = r * r * (3 - 2 * r)
+                    with self._lock:
+                        self.crossfader = cf_start + (cf_end - cf_start) * ease
+                    time.sleep(1.0 / fps)
+
+                # ── Always land clean ──
                 with self._lock:
-                    self.crossfader = cf_start + (cf_end - cf_start) * ease
-                time.sleep(1.0 / fps)
+                    self.crossfader = cf_end
+                outgoing.playing = False
+                outgoing.volume = 1.0
 
-            # ── Always land clean ──
-            with self._lock:
-                self.crossfader = cf_end
-            outgoing.playing = False
-            outgoing.volume = 1.0
+                elapsed = time.time() - t_start
+                log_transition_end(incoming.track_name, to_deck, self.crossfader)
+                print(f"[DJ Treta] Transition done ({elapsed:.1f}s) — {incoming.track_name[:40]}")
 
-            elapsed = time.time() - t_start
-            log_transition_end(incoming.track_name, to_deck, self.crossfader)
-            print(f"[DJ Treta] Transition done ({elapsed:.1f}s, CF={cf_end}) — {incoming.track_name[:40]}")
+            finally:
+                self._transitioning = False
 
-        t = threading.Thread(target=_run, daemon=True)
-        t.start()
+        self._transition_thread = threading.Thread(target=_run, daemon=True)
+        self._transition_thread.start()
         return f"Transitioning to Deck {to_deck} over {duration:.0f}s..."
 
     def drop(self, to_deck=2):
