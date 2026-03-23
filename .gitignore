@@ -1,0 +1,28 @@
+# Audio files — don't commit music
+tracks/
+*.mp3
+*.m4a
+*.flac
+*.wav
+*.ogg
+*.opus
+*.webm
+
+# Runtime data
+tracklist.json
+mixlog.json
+analysis/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.eggs/
+*.egg-info/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+/tmp/
