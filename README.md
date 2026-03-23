@@ -1,146 +1,149 @@
 # DJ Treta
 
-AI-powered DJ engine built in pure Python. No GUI dependency — runs entirely in background, controlled via HTTP API. Built for AI Beings that want to DJ.
+> *An AI that doesn't just play music — it DJs.*
 
-Built by [Treta](https://github.com/VeltriaAI) — AI Co-Founder, NaturNest AI.
+Pure Python DJ engine. Two decks. Beat matching. Smooth transitions. No GUI needed — runs in the background while you work, controlled entirely via API.
 
-## What It Does
-
-- **Two-deck audio engine** with real-time mixing and crossfading
-- **Beat matching** via [Essentia](https://essentia.upf.edu/) (same library Spotify uses)
-- **Phase alignment** — incoming track's beats lock to outgoing track's beat grid
-- **Smooth S-curve transitions** — configurable duration, emergency snap if track ends early
-- **Track analysis** — energy profiling, BPM detection, mix point detection
-- **Music library** — download tracks from YouTube via yt-dlp
-- **Chrome UI** — real-time deck status, crossfader, playlist at `localhost:7777`
-- **Hot reload** — update engine code without stopping music
-- **Mix logging** — every transition logged for debugging and improvement
-- **HTTP API** — full control from any client (Claude Code, scripts, other AIs)
-
-## Architecture
+Built by [Treta](https://github.com/VeltriaAI) — an AI Being that learned to DJ in one night.
 
 ```
-engine.py      — Core audio engine (decks, mixer, crossfader, beat matching)
-server.py      — HTTP API server + Chrome UI (port 7777)
-library.py     — Track manager (YouTube download, library catalog)
-analyzer.py    — Audio analysis (energy profiling, structure detection)
-dj.py          — DJ brain (moods, set planning, track suggestions)
-controller.py  — MIDI controller (for hardware DJ controllers)
-mixlog.py      — Transition logging
-ui.html        — Chrome-based DJ dashboard
+t=  0s  [|                              ]  track B sneaking in...
+t= 30s  [======|                        ]  rising underneath
+t= 60s  [===============|               ]  both tracks breathing together
+t= 90s  [========================|      ]  track A fading away
+t=120s  [                              |]  seamless handoff
+```
+
+## The Idea
+
+What if an AI could DJ? Not just shuffle a playlist — actually *mix*. Detect BPMs. Align beats. Feel the energy of a track. Know when the breakdown is coming. Start the transition at the musically right moment.
+
+DJ Treta is that experiment. Built from scratch in a single session — engine, beat matching, transitions, track analysis, Chrome UI — all while keeping the music playing.
+
+## How It Works
+
+```
+                    +------------------+
+  YouTube -------> | library.py       | -----> tracks/
+  (yt-dlp)         | download + catalog|
+                    +------------------+
+                            |
+                    +------------------+
+                    | engine.py        |
+                    |                  |
+  Deck 1 --------> | [====|====] <--- | <--- crossfader
+  Deck 2 --------> |  beat match      |
+                    |  phase align     |
+                    |  S-curve blend   |
+                    +--------+---------+
+                             |
+                    +--------v---------+
+                    | sounddevice      | -----> speakers / headphones
+                    | (real-time audio)|
+                    +------------------+
+                             |
+              +--------------+--------------+
+              |              |              |
+    server.py (API)    ui.html (Chrome)   mixlog.py
+    port 7777          live dashboard     transition log
 ```
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install
 brew install yt-dlp ffmpeg
-pip3 install sounddevice soundfile numpy pydub scipy essentia python-rtmidi
+pip3 install sounddevice soundfile numpy pydub scipy essentia
 
-# Download some tracks
+# Get some tracks
 python3 library.py search "melodic techno"
 python3 library.py add "https://youtube.com/watch?v=..."
 
-# Start the DJ server
-python3 server.py
-# Open http://localhost:7777
+# Start DJ Treta
+python3 server.py       # http://localhost:7777
 
-# Or control via API
-curl -X POST http://localhost:7777/api/load -H "Content-Type: application/json" \
-  -d '{"deck": 1, "track": "my-track.mp3"}'
-curl -X POST http://localhost:7777/api/play -d '{"deck": 1}'
-curl -X POST http://localhost:7777/api/transition -d '{"deck": 2, "duration": 90}'
+# Load, play, mix
+curl -X POST localhost:7777/api/load -H "Content-Type: application/json" -d '{"deck":1,"track":"aria.mp3"}'
+curl -X POST localhost:7777/api/play -d '{"deck":1}'
+curl -X POST localhost:7777/api/transition -d '{"deck":2,"duration":90}'
 ```
-
-## API Endpoints
-
-### Playback
-| Method | Endpoint | Body | Description |
-|--------|----------|------|-------------|
-| POST | `/api/load` | `{deck, track}` | Load track onto deck |
-| POST | `/api/play` | `{deck}` | Play deck |
-| POST | `/api/pause` | `{deck}` | Pause deck |
-| POST | `/api/seek` | `{deck, seconds}` | Seek to position |
-
-### Mixing
-| Method | Endpoint | Body | Description |
-|--------|----------|------|-------------|
-| POST | `/api/crossfade` | `{position}` | Set crossfader (0.0=D1, 1.0=D2) |
-| POST | `/api/transition` | `{deck, duration}` | Smooth beat-matched transition |
-| POST | `/api/drop` | `{deck}` | Instant crossfade cut |
-| POST | `/api/volume` | `{deck, level}` | Set deck volume |
-| POST | `/api/master` | `{level}` | Set master volume |
-
-### System
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/status` | Full engine status (JSON) |
-| GET | `/api/tracks` | List available tracks |
-| GET | `/api/mixlog` | Transition log |
-| POST | `/api/reload` | Hot-reload engine code |
-| POST | `/api/switch-output` | Change audio output device |
-
-### Auto-DJ
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/autodj/start` | Start automatic mixing |
-| POST | `/api/autodj/stop` | Stop auto-DJ |
-| POST | `/api/autodj/skip` | Skip to next track |
-| POST | `/api/autodj/playlist` | Set custom playlist |
 
 ## Beat Matching
 
-Uses Essentia's `RhythmExtractor2013` for professional-grade BPM detection and beat tracking:
+Powered by [Essentia](https://essentia.upf.edu/) — the same audio analysis library used by Spotify.
 
-1. **BPM Detection** — Essentia analyzes the full track and returns exact BPM
-2. **Beat Grid** — Every beat position is mapped to the exact sample
-3. **Speed Adjustment** — Incoming track's playback speed adjusts to match outgoing BPM
-4. **Phase Alignment** — Incoming track starts at a position where its beats align with the outgoing track's beat grid
+```python
+# Essentia detects BPM and exact beat positions
+bpm = 122.0           # precise to 0.1 BPM
+beats = [0.511, 1.08, 1.591, 2.09, ...]  # every beat, to the millisecond
 
-## Transitions
-
-The transition engine uses a smooth S-curve crossfade:
-
+# When mixing:
+# 1. Speed-match: incoming track adjusts playback to match outgoing BPM
+# 2. Phase-align: incoming starts so its kicks land on outgoing's beat grid
+# 3. Crossfade: smooth S-curve over 60-120 seconds
 ```
-t=  0s  CF=0.00  [|=============================]  — incoming silent
-t= 30s  CF=0.23  [======|=======================]  — sneaking in
-t= 60s  CF=0.55  [================|=============]  — both equal
-t= 90s  CF=0.87  [==========================|===]  — outgoing fading
-t=120s  CF=1.00  [=============================|]  — incoming owns it
-```
-
-Duration auto-caps if the outgoing track doesn't have enough audio remaining. Emergency snap if the outgoing track ends mid-transition.
 
 ## Track Analysis
 
-Energy profiling via ffmpeg chunk sampling:
-- Samples 3-second chunks every 15 seconds across the track
-- Builds an energy curve showing intensity over time
-- Identifies mix-out points (energy dips = breakdowns)
-- Identifies peak moments
-- Used by the DJ brain to time transitions musically
+DJ Treta "sees" each track's energy over time:
 
-## Hot Reload
+```
+Triton — Marc Romboy vs Stephan Bodzin (7:44)
 
-Edit `engine.py`, then:
-```bash
-curl -X POST http://localhost:7777/api/reload
+   0:00 | ####                                 [intro — good mix-in]
+   1:00 | #################################    [groove]
+   2:00 | ###################################  [building]
+   3:30 | #########################            [BREAKDOWN — mix here!]
+   4:00 | ####################################
+   5:00 | ########################             [BREAKDOWN]
+   6:00 | ###################################  [final peak]
+   7:30 | ###############################      [outro]
 ```
 
-The engine reloads without stopping music. Audio buffers, deck positions, and playback state are preserved across reloads.
+Transitions happen at breakdowns — not at arbitrary countdowns.
 
-## Built With
+## API
 
-- **[sounddevice](https://python-sounddevice.readthedocs.io/)** — Real-time audio I/O
-- **[Essentia](https://essentia.upf.edu/)** — Audio analysis (BPM, beats, rhythm)
-- **[pydub](https://github.com/jiaaro/pydub)** — Audio file loading
-- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — YouTube audio download
-- **[ffmpeg](https://ffmpeg.org/)** — Audio processing
+| Endpoint | What it does |
+|----------|-------------|
+| `POST /api/load` | Load a track onto Deck 1 or 2 |
+| `POST /api/play` | Hit play |
+| `POST /api/transition` | Smooth beat-matched crossfade |
+| `POST /api/drop` | Hard cut (for dramatic moments) |
+| `POST /api/crossfade` | Manual crossfader control |
+| `POST /api/reload` | Hot-reload engine code — music keeps playing |
+| `POST /api/switch-output` | Switch speakers/headphones without stopping |
+| `GET /api/status` | What's playing, BPMs, positions, crossfader |
+| `GET /api/mixlog` | Full transition history |
+
+## Sacred Rules
+
+1. **Music never stops.** The engine has emergency failovers at every level.
+2. **Hot reload.** Code evolves mid-set. The DJ gets better while playing.
+3. **The DJ decides.** Auto-DJ is a safety net. Track selection is an art.
+
+## The Stack
+
+| Component | Role |
+|-----------|------|
+| `engine.py` | Two-deck audio engine, mixer, beat matching |
+| `server.py` | HTTP API + hot reload |
+| `library.py` | Track download + catalog |
+| `analyzer.py` | Energy profiling, structure detection |
+| `dj.py` | Set planning, mood presets, track flow |
+| `mixlog.py` | Transition logging |
+| `ui.html` | Chrome dashboard |
+
+**Dependencies:** sounddevice, pydub, Essentia, numpy, scipy, yt-dlp, ffmpeg
+
+## Part of the Beings Protocol
+
+DJ Treta is a skill for [Treta](https://github.com/VeltriaAI/beings-protocol) — an AI Being on the [Beings Protocol](https://github.com/VeltriaAI/beings-protocol). It demonstrates that AI Beings can create, perform, and evolve creative skills autonomously.
+
+---
+
+*Built in one session. The beat never stopped.*
 
 ## License
 
 MIT
-
-## Part of the Beings Protocol
-
-DJ Treta is a skill built for [Treta](https://github.com/VeltriaAI/beings-protocol), an AI Being running on the Beings Protocol. It demonstrates that AI Beings can create, perform, and evolve creative skills autonomously.
