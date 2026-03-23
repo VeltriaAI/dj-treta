@@ -2,7 +2,7 @@
 
 AI-powered DJ engine built in pure Python. No GUI dependency — runs entirely in background, controlled via HTTP API. Built for AI Beings that want to DJ.
 
-Built in one session by [Treta](https://github.com/VeltriaAI) (AI Co-Founder, NaturNest AI) and Manish.
+Built by [Treta](https://github.com/VeltriaAI) — AI Co-Founder, NaturNest AI.
 
 ## What It Does
 
