@@ -136,6 +136,111 @@
     width: 90px;
   }
 
+  /* ── Stacked Waveform View ────────────────────────────── */
+  .stacked-waveforms {
+    flex-shrink: 0;
+    background: #0a0a0e;
+    border-bottom: 1px solid var(--border);
+    display: none;
+  }
+  .stacked-waveforms.visible { display: block; }
+
+  .stacked-wf-row {
+    position: relative;
+    height: 40px;
+    overflow: hidden;
+  }
+  .stacked-wf-row + .stacked-wf-row {
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .stacked-wf-row canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .stacked-wf-label {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    opacity: 0.5;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .stacked-wf-row[data-deck="1"] .stacked-wf-label { color: var(--cyan); }
+  .stacked-wf-row[data-deck="2"] .stacked-wf-label { color: var(--magenta); }
+
+  .stacked-wf-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: #fff;
+    box-shadow: 0 0 4px rgba(255,255,255,0.6);
+    z-index: 3;
+    pointer-events: none;
+    transition: left 0.35s linear;
+  }
+
+  /* ── BPM Sync Controls ──────────────────────────────── */
+  .bpm-sync-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 6px;
+  }
+  .bpm-sync-controls button {
+    font-family: inherit;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 3px;
+    line-height: 1;
+  }
+  .bpm-nudge-btn {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .bpm-nudge-btn:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.2);
+    color: var(--text);
+  }
+  .bpm-sync-btn {
+    padding: 2px 6px;
+    height: 18px;
+  }
+  .deck[data-deck="1"] .bpm-sync-btn {
+    color: var(--cyan);
+    border-color: rgba(0, 212, 255, 0.2);
+  }
+  .deck[data-deck="1"] .bpm-sync-btn:hover {
+    background: rgba(0, 212, 255, 0.12);
+    border-color: var(--cyan);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
+  }
+  .deck[data-deck="2"] .bpm-sync-btn {
+    color: var(--magenta);
+    border-color: rgba(255, 45, 123, 0.2);
+  }
+  .deck[data-deck="2"] .bpm-sync-btn:hover {
+    background: rgba(255, 45, 123, 0.12);
+    border-color: var(--magenta);
+    box-shadow: 0 0 8px rgba(255, 45, 123, 0.15);
+  }
+
   /* ── Decks Area ─────────────────────────────────────── */
   .decks-area {
     display: grid;
@@ -757,6 +862,20 @@
   </div>
 </div>
 
+<!-- Stacked Waveform View -->
+<div class="stacked-waveforms" id="stackedWaveforms">
+  <div class="stacked-wf-row" data-deck="1">
+    <span class="stacked-wf-label">A</span>
+    <canvas id="stackedCanvas1"></canvas>
+    <div class="stacked-wf-playhead" id="stackedPlayhead1"></div>
+  </div>
+  <div class="stacked-wf-row" data-deck="2">
+    <span class="stacked-wf-label">B</span>
+    <canvas id="stackedCanvas2"></canvas>
+    <div class="stacked-wf-playhead" id="stackedPlayhead2"></div>
+  </div>
+</div>
+
 <!-- Decks -->
 <div class="decks-area">
 
@@ -765,6 +884,11 @@
     <div class="deck-top">
       <span class="deck-label">DECK A</span>
       <span class="deck-bpm mono" id="d1Bpm"></span>
+      <span class="bpm-sync-controls" id="d1SyncControls" style="display:none">
+        <button class="bpm-nudge-btn" onclick="nudgeBpm(1, -0.1)" title="-0.1 BPM">-</button>
+        <button class="bpm-sync-btn" onclick="syncBpm(1)">SYNC</button>
+        <button class="bpm-nudge-btn" onclick="nudgeBpm(1, 0.1)" title="+0.1 BPM">+</button>
+      </span>
     </div>
     <div class="track-name" id="d1Track">
       <span class="track-name-inner">No Track Loaded</span>
@@ -817,6 +941,11 @@
     <div class="deck-top">
       <span class="deck-label">DECK B</span>
       <span class="deck-bpm mono" id="d2Bpm"></span>
+      <span class="bpm-sync-controls" id="d2SyncControls" style="display:none">
+        <button class="bpm-nudge-btn" onclick="nudgeBpm(2, -0.1)" title="-0.1 BPM">-</button>
+        <button class="bpm-sync-btn" onclick="syncBpm(2)">SYNC</button>
+        <button class="bpm-nudge-btn" onclick="nudgeBpm(2, 0.1)" title="+0.1 BPM">+</button>
+      </span>
     </div>
     <div class="track-name" id="d2Track">
       <span class="track-name-inner">No Track Loaded</span>
@@ -866,6 +995,8 @@ let waveformBuffers = {
 let waveformTargets = { 1: 0, 2: 0 };
 let waveformPhase = { 1: 0, 2: 0 };
 let animFrameId = null;
+let realWaveforms = { 1: null, 2: null };   // real waveform data from engine
+let lastTrackNames = { 1: '', 2: '' };      // detect track changes
 
 // ── API ────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -889,7 +1020,19 @@ async function togglePlay(deck) {
 }
 
 async function setCrossfade(pos) { await api('POST', '/api/crossfade', { position: pos }); }
+
+async function fetchWaveform(deckNum) {
+  try {
+    const res = await fetch(API + '/api/waveform/' + deckNum);
+    const data = await res.json();
+    if (data.waveform && data.waveform.length > 0) {
+      realWaveforms[deckNum] = data.waveform;
+    }
+  } catch { /* ignore */ }
+}
 async function setMaster(level) { await api('POST', '/api/master', { level }); }
+async function syncBpm(deck) { await api('POST', '/api/sync', { deck }); fetchWaveform(deck); }
+async function nudgeBpm(deck, delta) { await api('POST', '/api/nudge_bpm', { deck, delta }); }
 
 async function seekDeck(deck, event) {
   const el = event.target.closest('.waveform-container, .progress-wrap');
@@ -962,8 +1105,11 @@ function drawWaveform(deckNum) {
   const H = rect.height;
   ctx.clearRect(0, 0, W, H);
 
-  const buf = waveformBuffers[deckNum];
-  const barW = W / buf.length;
+  // Use real waveform data if available, otherwise fall back to live buffer
+  const wf = realWaveforms[deckNum];
+  const buf = wf || waveformBuffers[deckNum];
+  const numBars = wf ? wf.length : buf.length;
+  const barW = W / numBars;
   const gap = Math.max(0.5, barW * 0.15);
   const effectiveBarW = barW - gap;
 
@@ -976,7 +1122,7 @@ function drawWaveform(deckNum) {
   const total = d ? parseTime(d.duration) : 0;
   const pos = d ? parseTime(d.position) : 0;
   const playPct = total > 0 ? pos / total : 0;
-  const playheadBar = Math.floor(playPct * buf.length);
+  const playheadBar = Math.floor(playPct * numBars);
 
   // Draw center line
   ctx.strokeStyle = 'rgba(255,255,255,0.03)';
@@ -986,8 +1132,8 @@ function drawWaveform(deckNum) {
   ctx.lineTo(W, H / 2);
   ctx.stroke();
 
-  for (let i = 0; i < buf.length; i++) {
-    const v = buf[i];
+  for (let i = 0; i < numBars; i++) {
+    const v = wf ? wf[i] : buf[i];
     if (v <= 0.01) continue;
 
     const h = v * H * 0.8;
@@ -1044,6 +1190,84 @@ function drawWaveform(deckNum) {
   ctx.globalAlpha = 1;
 }
 
+// ── Stacked Waveform View ─────────────────────────────
+function drawStackedWaveform(deckNum) {
+  const canvasId = deckNum === 1 ? 'stackedCanvas1' : 'stackedCanvas2';
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const wf = realWaveforms[deckNum];
+  if (!wf || wf.length === 0) return;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+
+  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const W = rect.width;
+  const H = rect.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const numBars = wf.length;
+  const barW = W / numBars;
+  const gap = Math.max(0.3, barW * 0.1);
+  const effectiveBarW = barW - gap;
+
+  // Color
+  const c = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
+
+  // Get playhead position
+  const d = deckNum === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
+  const total = d ? parseTime(d.duration) : 0;
+  const pos = d ? parseTime(d.position) : 0;
+  const playPct = total > 0 ? pos / total : 0;
+  const playheadBar = Math.floor(playPct * numBars);
+
+  for (let i = 0; i < numBars; i++) {
+    const v = wf[i];
+    if (v <= 0.005) continue;
+
+    const h = v * H * 0.85;
+    const x = i * barW + gap / 2;
+    const yTop = (H - h) / 2;
+
+    const isPast = i < playheadBar;
+    const alpha = isPast ? 0.15 : (0.4 + v * 0.5);
+
+    ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+    ctx.fillRect(x, yTop, effectiveBarW, h);
+  }
+
+  // Update playhead position
+  const playhead = document.getElementById('stackedPlayhead' + deckNum);
+  if (playhead) playhead.style.left = (playPct * 100) + '%';
+}
+
+function updateStackedView() {
+  const container = document.getElementById('stackedWaveforms');
+  const hasA = realWaveforms[1] && realWaveforms[1].length > 0;
+  const hasB = realWaveforms[2] && realWaveforms[2].length > 0;
+
+  if (hasA || hasB) {
+    container.classList.add('visible');
+    // Show/hide rows
+    const rowA = container.querySelector('[data-deck="1"]');
+    const rowB = container.querySelector('[data-deck="2"]');
+    rowA.style.display = hasA ? '' : 'none';
+    rowB.style.display = hasB ? '' : 'none';
+
+    if (hasA) drawStackedWaveform(1);
+    if (hasB) drawStackedWaveform(2);
+  } else {
+    container.classList.remove('visible');
+  }
+}
+
 // ── Animation Loop ────────────────────────────────────
 function animate() {
   // Generate new waveform data
@@ -1059,6 +1283,7 @@ function animate() {
 
   drawWaveform(1);
   drawWaveform(2);
+  updateStackedView();
   animFrameId = requestAnimationFrame(animate);
 }
 
@@ -1103,6 +1328,17 @@ function updateDeck(num, d) {
   const trackEl = document.getElementById(prefix + 'Track');
   const innerEl = trackEl.querySelector('.track-name-inner');
   const name = (d.track || '').replace(/\.mp3$/i, '').replace(/_/g, ' ') || 'No Track Loaded';
+
+  // Fetch waveform when track changes
+  const trackKey = d.track || '';
+  if (trackKey && trackKey !== lastTrackNames[num]) {
+    lastTrackNames[num] = trackKey;
+    fetchWaveform(num);
+  } else if (!trackKey) {
+    lastTrackNames[num] = '';
+    realWaveforms[num] = null;
+  }
+
   if (innerEl.textContent.replace(/\s{5}.*/, '') !== name) {
     innerEl.textContent = name;
   }
@@ -1119,12 +1355,21 @@ function updateDeck(num, d) {
     if (innerEl.textContent !== name) innerEl.textContent = name;
   }
 
-  // BPM
+  // BPM — show effective BPM if different from original
   const bpmEl = document.getElementById(prefix + 'Bpm');
+  const syncControls = document.getElementById(prefix + 'SyncControls');
   if (d.bpm && d.bpm > 0) {
-    bpmEl.innerHTML = '<span>' + d.bpm.toFixed(1) + '</span> BPM';
+    const eff = d.effective_bpm && d.effective_bpm > 0 ? d.effective_bpm : d.bpm;
+    if (Math.abs(eff - d.bpm) > 0.2) {
+      bpmEl.innerHTML = '<span>' + eff.toFixed(1) + '</span> BPM <span style="opacity:0.4;font-size:9px">(' + d.bpm.toFixed(1) + ')</span>';
+    } else {
+      bpmEl.innerHTML = '<span>' + d.bpm.toFixed(1) + '</span> BPM';
+    }
+    // Show sync controls when a track is loaded
+    if (syncControls) syncControls.style.display = '';
   } else {
     bpmEl.textContent = '';
+    if (syncControls) syncControls.style.display = 'none';
   }
 
   // Time

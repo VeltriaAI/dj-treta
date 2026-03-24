@@ -319,6 +319,7 @@ class Deck:
         self.mix_out_points = []    # best points to start mixing out
         self.mix_in_points = []     # best points for incoming track
         self.peak_time = 0          # when the track hits peak energy
+        self.waveform = []          # downsampled RMS values for UI visualization
 
     def load(self, filepath):
         """Load an audio file onto this deck."""
@@ -372,6 +373,23 @@ class Deck:
             self.beat_grid_interval = int(60 * SAMPLE_RATE / self.bpm) if self.bpm > 0 else 0
             self.beat_grid_offset = 0
             self.first_beat = 0
+
+        # Compute waveform: ~500 RMS values across the track (vectorized)
+        n_bins = 500
+        n_samples = len(self.audio)
+        bin_size = max(1, n_samples // n_bins)
+        usable = bin_size * n_bins
+        if usable <= n_samples and n_samples > 0:
+            # Vectorized: reshape into bins and compute RMS per bin
+            mono = self.audio[:usable].mean(axis=1) if self.audio.ndim == 2 else self.audio[:usable]
+            bins = mono[:usable].reshape(n_bins, bin_size)
+            rms_values = np.sqrt(np.mean(bins ** 2, axis=1))
+            max_rms = rms_values.max()
+            if max_rms > 0:
+                rms_values = rms_values / max_rms
+            self.waveform = np.round(rms_values, 3).tolist()
+        else:
+            self.waveform = []
 
         mins = int(self.duration // 60)
         secs = int(self.duration % 60)
@@ -564,6 +582,7 @@ class Deck:
             "duration": f"{int(self.duration // 60)}:{int(self.duration % 60):02d}",
             "volume": round(self.volume, 2),
             "bpm": self.bpm,
+            "effective_bpm": self.effective_bpm,
             "peak_time": self.peak_time,
             "mix_out_points": [m['time'] for m in self.mix_out_points[:3]],
         }
@@ -1003,6 +1022,27 @@ class DJEngine:
         t = threading.Thread(target=_run, daemon=True)
         t.start()
         return f"Blending over {duration}s..."
+
+    # ── BPM Sync ─────────────────────────────────────────────────────
+
+    def sync_bpm(self, deck_num):
+        """Match deck's BPM to the other deck."""
+        deck = self.deck1 if deck_num == 1 else self.deck2
+        other = self.deck2 if deck_num == 1 else self.deck1
+        if other.bpm > 0 and deck.bpm > 0:
+            target = other.effective_bpm if other.effective_bpm > 0 else other.bpm
+            deck.match_bpm(target)
+            return f"Deck {deck_num} synced to {target:.1f} BPM"
+        return f"Deck {deck_num}: nothing to sync to"
+
+    def nudge_bpm(self, deck_num, delta):
+        """Adjust deck speed slightly. delta in BPM (e.g., +0.1 or -0.1)."""
+        deck = self.deck1 if deck_num == 1 else self.deck2
+        current = deck.effective_bpm if deck.effective_bpm > 0 else deck.bpm
+        if current > 0:
+            deck.match_bpm(current + delta)
+            return f"Deck {deck_num} nudged to {current + delta:.1f} BPM"
+        return f"Deck {deck_num}: no BPM to nudge"
 
     # ── Status ──────────────────────────────────────────────────────
 

@@ -202,6 +202,7 @@ def reload_engine():
                 "loop_end": deck.loop_end,
                 "looping": deck.looping,
                 "sample_rate": deck.sample_rate,
+                "waveform": getattr(deck, 'waveform', []),
             }
 
         # ── 2. Stop old engine's stream (brief silence here) ──
@@ -245,6 +246,7 @@ def reload_engine():
             deck.loop_end = ds["loop_end"]
             deck.looping = ds["looping"]
             deck.sample_rate = ds["sample_rate"]
+            deck.waveform = ds["waveform"]
 
         # ── 6. Restore mixer state ──
         new_engine.crossfader = state["crossfader"]
@@ -311,6 +313,12 @@ class DJHandler(http.server.SimpleHTTPRequestHandler):
                             "size_mb": round(f.stat().st_size / 1024 / 1024, 1),
                         })
             self._json_response({"tracks": tracks})
+
+        elif path == '/api/waveform/1':
+            self._json_response({"waveform": dj.deck1.waveform})
+
+        elif path == '/api/waveform/2':
+            self._json_response({"waveform": dj.deck2.waveform})
 
         elif path == '/api/mixlog':
             try:
@@ -419,6 +427,15 @@ class DJHandler(http.server.SimpleHTTPRequestHandler):
         elif path == '/api/switch-output':
             device = body.get('device', None)
             self._json_response({"ok": True, "msg": dj.switch_output(device)})
+
+        elif path == '/api/sync':
+            deck = body.get('deck', 1)
+            self._json_response({"ok": True, "msg": dj.sync_bpm(deck)})
+
+        elif path == '/api/nudge_bpm':
+            deck = body.get('deck', 1)
+            delta = body.get('delta', 0.1)
+            self._json_response({"ok": True, "msg": dj.nudge_bpm(deck, delta)})
 
         elif path == '/api/reload':
             result = reload_engine()
