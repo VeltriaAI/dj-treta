@@ -435,13 +435,13 @@
     border-radius: 50%;
     box-shadow: 0 0 6px rgba(255,255,255,0.8);
   }
-  /* Played overlay */
+  /* Played overlay — lighter since waveform itself handles dimming */
   .waveform-played {
     position: absolute;
     top: 0;
     left: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(0, 0, 0, 0.15);
     pointer-events: none;
     z-index: 2;
     transition: width 0.35s linear;
@@ -1090,6 +1090,16 @@ function generateWaveformEnergy(deckNum, energy, playing) {
   buf[buf.length - 1] = buf[buf.length - 2] * 0.3 + val * 0.7;
 }
 
+function freqColor(bass, mid, high, deckNum) {
+  // Map frequency ratios to DJ-style colors
+  // Bass = blue/cyan, Mid = green/yellow, High = orange/red/magenta
+  // Blend with deck accent color for cohesion
+  const r = Math.round(Math.min(255, high * 320 + mid * 80 + bass * 10));
+  const g = Math.round(Math.min(255, mid * 240 + high * 60 + bass * 40));
+  const b = Math.round(Math.min(255, bass * 300 + mid * 40 + high * 10));
+  return [r, g, b];
+}
+
 function drawWaveform(deckNum) {
   const canvasId = deckNum === 1 ? 'd1Canvas' : 'd2Canvas';
   const canvas = document.getElementById(canvasId);
@@ -1109,86 +1119,75 @@ function drawWaveform(deckNum) {
   const H = rect.height;
   ctx.clearRect(0, 0, W, H);
 
-  // Use real waveform data if available, otherwise fall back to live buffer
-  const wf = realWaveforms[deckNum];
-  const buf = wf || waveformBuffers[deckNum];
-  const numBars = wf ? wf.length : buf.length;
-  const barW = W / numBars;
-  const gap = Math.max(0.5, barW * 0.15);
-  const effectiveBarW = barW - gap;
+  const data = realWaveforms[deckNum];
+  const hasPro = data && data.peaks && data.peaks.length > 0;
 
-  // Color stops
-  const c1 = deckNum === 1 ? [0, 168, 214] : [214, 37, 101];  // darker
-  const c2 = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];  // brighter
+  // Fallback to old buffer-based rendering if no pro data
+  if (!hasPro) {
+    const buf = waveformBuffers[deckNum];
+    const c = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
+    const barW = W / buf.length;
+    for (let i = 0; i < buf.length; i++) {
+      const v = buf[i];
+      if (v <= 0.01) continue;
+      const h = v * H * 0.8;
+      const x = i * barW;
+      ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${0.5 + v * 0.4})`;
+      ctx.fillRect(x, (H - h) / 2, Math.max(1, barW - 0.5), h);
+    }
+    return;
+  }
 
-  // Get playhead position for played/upcoming distinction
+  const peaks = data.peaks;
+  const colors = data.colors;
+  const numBins = peaks.length;
+
+  // Get playhead position
   const d = deckNum === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
   const total = d ? parseTime(d.duration) : 0;
   const pos = d ? parseTime(d.position) : 0;
   const playPct = total > 0 ? pos / total : 0;
-  const playheadBar = Math.floor(playPct * numBars);
 
   // Draw center line
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.025)';
   ctx.lineWidth = 0.5;
   ctx.beginPath();
   ctx.moveTo(0, H / 2);
   ctx.lineTo(W, H / 2);
   ctx.stroke();
 
-  for (let i = 0; i < numBars; i++) {
-    const v = wf ? wf[i] : buf[i];
-    if (v <= 0.01) continue;
+  // Draw as continuous filled waveform shape using paths
+  // Group consecutive bins into path segments with similar colors for performance
+  // We batch into pixel-width segments (each segment may cover multiple bins)
+  const pxPerBin = W / numBins;
 
-    const h = v * H * 0.8;
-    const x = i * barW + gap / 2;
-    const yTop = (H - h) / 2;
+  // Draw top half path and bottom half as mirror — with per-column frequency color
+  // Use fillRect for speed since we have 2000 bins mapping to ~canvas width pixels
+  const colWidth = Math.max(1, pxPerBin);
 
-    // Brightness based on position relative to playhead
-    const isPast = i < playheadBar;
-    const alphaMult = isPast ? 0.3 : (0.6 + v * 0.4);
+  for (let i = 0; i < numBins; i++) {
+    const v = peaks[i];
+    if (v <= 0.005) continue;
 
-    // Interpolate color based on value
-    const t = v;
-    const r = c1[0] + (c2[0] - c1[0]) * t;
-    const g = c1[1] + (c2[1] - c1[1]) * t;
-    const b = c1[2] + (c2[2] - c1[2]) * t;
+    const x = i * pxPerBin;
+    const h = v * H * 0.88;
+    const y = (H - h) / 2;
 
-    // Create gradient for each bar (top to center to bottom)
-    const grad = ctx.createLinearGradient(0, yTop, 0, yTop + h);
-    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaMult * 0.5})`);
-    grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
-    grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
-    grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
-    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alphaMult * 0.5})`);
+    // Frequency-based color
+    const fc = (colors && colors[i]) ? colors[i] : [0.5, 0.3, 0.2];
+    const [cr, cg, cb] = freqColor(fc[0], fc[1], fc[2], deckNum);
 
-    ctx.fillStyle = grad;
+    // Dim played portion, brighten upcoming
+    const binPct = i / numBins;
+    const isPast = binPct < playPct;
+    const alpha = isPast ? 0.25 : (0.55 + v * 0.4);
 
-    // Rounded bars
-    const radius = Math.min(effectiveBarW / 2, 2);
-    ctx.beginPath();
-    ctx.moveTo(x + radius, yTop);
-    ctx.lineTo(x + effectiveBarW - radius, yTop);
-    ctx.quadraticCurveTo(x + effectiveBarW, yTop, x + effectiveBarW, yTop + radius);
-    ctx.lineTo(x + effectiveBarW, yTop + h - radius);
-    ctx.quadraticCurveTo(x + effectiveBarW, yTop + h, x + effectiveBarW - radius, yTop + h);
-    ctx.lineTo(x + radius, yTop + h);
-    ctx.quadraticCurveTo(x, yTop + h, x, yTop + h - radius);
-    ctx.lineTo(x, yTop + radius);
-    ctx.quadraticCurveTo(x, yTop, x + radius, yTop);
-    ctx.fill();
-
-    // Glow on high energy upcoming bars
-    if (!isPast && v > 0.6) {
-      ctx.shadowColor = `rgba(${c2[0]}, ${c2[1]}, ${c2[2]}, ${(v - 0.6) * 0.5})`;
-      ctx.shadowBlur = 6;
-      ctx.fill();
-      ctx.shadowBlur = 0;
-    }
+    ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
+    ctx.fillRect(x, y, Math.max(1, colWidth), h);
   }
 
-  // Subtle reflection
-  ctx.globalAlpha = 0.04;
+  // Subtle glow line at center
+  ctx.globalAlpha = 0.03;
   ctx.fillStyle = deckNum === 1 ? 'rgba(0, 212, 255, 1)' : 'rgba(255, 45, 123, 1)';
   ctx.fillRect(0, H * 0.48, W, H * 0.04);
   ctx.globalAlpha = 1;
@@ -1200,8 +1199,11 @@ function drawStackedWaveform(deckNum) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  const wf = realWaveforms[deckNum];
-  if (!wf || wf.length === 0) return;
+  const data = realWaveforms[deckNum];
+  if (!data) return;
+  const peaks = data.peaks;
+  const colors = data.colors;
+  if (!peaks || peaks.length === 0) return;
 
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
@@ -1227,69 +1229,61 @@ function drawStackedWaveform(deckNum) {
   const windowSec = 10;
   const halfWindow = windowSec / 2;
   const startSec = currentSec - halfWindow;
-  const endSec = currentSec + halfWindow;
 
-  // Color
-  const c = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
+  // Draw as continuous filled path for smooth organic shape
+  const numPoints = Math.floor(W);  // one point per CSS pixel
+  const midY = H / 2;
 
-  // Interpolate waveform data for the visible window
-  // Generate ~200 visual bars by sampling from the 500-bin waveform with linear interpolation
-  const numVisualBars = 200;
-  const gap = 1;
-  const barW = W / numVisualBars;
-  const effectiveBarW = barW - gap;
-
-  for (let i = 0; i < numVisualBars; i++) {
-    // Map bar index to time position
-    const t = startSec + (i / numVisualBars) * windowSec;
-
-    // Skip bars outside the track range
-    if (t < 0 || t >= totalSec) continue;
-
-    // Map time to waveform bin (fractional) and interpolate
-    const binF = (t / totalSec) * wf.length;
+  // Build top and bottom path points with color sampling
+  const pointData = [];
+  for (let px = 0; px < numPoints; px++) {
+    const t = startSec + (px / numPoints) * windowSec;
+    if (t < 0 || t >= totalSec) {
+      pointData.push({ v: 0, color: [0.5, 0.3, 0.2] });
+      continue;
+    }
+    // Interpolate from peaks array
+    const binF = (t / totalSec) * peaks.length;
     const binLow = Math.floor(binF);
-    const binHigh = Math.min(binLow + 1, wf.length - 1);
+    const binHigh = Math.min(binLow + 1, peaks.length - 1);
     const frac = binF - binLow;
-    const v = wf[binLow] * (1 - frac) + wf[binHigh] * frac;
+    const v = peaks[binLow] * (1 - frac) + (peaks[binHigh] || 0) * frac;
 
-    if (v <= 0.005) continue;
+    // Interpolate color
+    let fc = [0.5, 0.3, 0.2];
+    if (colors && colors.length > 0) {
+      const cLow = colors[Math.min(binLow, colors.length - 1)] || [0.5, 0.3, 0.2];
+      const cHigh = colors[Math.min(binHigh, colors.length - 1)] || [0.5, 0.3, 0.2];
+      fc = [
+        cLow[0] * (1 - frac) + cHigh[0] * frac,
+        cLow[1] * (1 - frac) + cHigh[1] * frac,
+        cLow[2] * (1 - frac) + cHigh[2] * frac
+      ];
+    }
+    pointData.push({ v, color: fc });
+  }
 
-    const h = v * H * 0.85;
-    const x = i * barW + gap / 2;
-    const yTop = (H - h) / 2;
+  // Draw filled waveform as vertical columns (fast, smooth at 1px width)
+  for (let px = 0; px < numPoints; px++) {
+    const pd = pointData[px];
+    if (pd.v <= 0.005) continue;
 
-    // Left of center = past (dimmed), right = upcoming (full)
-    const isPast = i < numVisualBars / 2;
-    const alpha = isPast ? 0.3 : (0.5 + v * 0.45);
+    const amplitude = pd.v * H * 0.42;
+    const [cr, cg, cb] = freqColor(pd.color[0], pd.color[1], pd.color[2], deckNum);
 
-    // Gradient: slightly brighter at the top of bars
-    const grad = ctx.createLinearGradient(x, yTop, x, yTop + h);
-    grad.addColorStop(0, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`);
-    grad.addColorStop(1, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha * 0.6})`);
-    ctx.fillStyle = grad;
+    // Left of center = past, right = upcoming
+    const isPast = px < numPoints / 2;
+    const alpha = isPast ? 0.25 : (0.5 + pd.v * 0.45);
 
-    // Rounded top bars
-    const radius = Math.min(effectiveBarW / 2, 1.5);
-    ctx.beginPath();
-    ctx.moveTo(x + radius, yTop);
-    ctx.lineTo(x + effectiveBarW - radius, yTop);
-    ctx.quadraticCurveTo(x + effectiveBarW, yTop, x + effectiveBarW, yTop + radius);
-    ctx.lineTo(x + effectiveBarW, yTop + h - radius);
-    ctx.quadraticCurveTo(x + effectiveBarW, yTop + h, x + effectiveBarW - radius, yTop + h);
-    ctx.lineTo(x + radius, yTop + h);
-    ctx.quadraticCurveTo(x, yTop + h, x, yTop + h - radius);
-    ctx.lineTo(x, yTop + radius);
-    ctx.quadraticCurveTo(x, yTop, x + radius, yTop);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillStyle = `rgba(${cr}, ${cg}, ${cb}, ${alpha})`;
+    ctx.fillRect(px, midY - amplitude, 1, amplitude * 2);
   }
 }
 
 function updateStackedView() {
   const container = document.getElementById('stackedWaveforms');
-  const hasA = realWaveforms[1] && realWaveforms[1].length > 0;
-  const hasB = realWaveforms[2] && realWaveforms[2].length > 0;
+  const hasA = realWaveforms[1] && realWaveforms[1].peaks && realWaveforms[1].peaks.length > 0;
+  const hasB = realWaveforms[2] && realWaveforms[2].peaks && realWaveforms[2].peaks.length > 0;
 
   if (hasA || hasB) {
     container.classList.add('visible');
