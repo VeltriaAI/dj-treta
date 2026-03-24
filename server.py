@@ -203,6 +203,8 @@ def reload_engine():
                 "looping": deck.looping,
                 "sample_rate": deck.sample_rate,
                 "waveform": getattr(deck, 'waveform', []),
+                "waveform_peaks": getattr(deck, 'waveform_peaks', []),
+                "waveform_colors": getattr(deck, 'waveform_colors', []),
             }
 
         # ── 2. Stop old engine's stream (brief silence here) ──
@@ -247,6 +249,8 @@ def reload_engine():
             deck.looping = ds["looping"]
             deck.sample_rate = ds["sample_rate"]
             deck.waveform = ds["waveform"]
+            deck.waveform_peaks = ds.get("waveform_peaks", [])
+            deck.waveform_colors = ds.get("waveform_colors", [])
 
         # ── 6. Restore mixer state ──
         new_engine.crossfader = state["crossfader"]
@@ -315,10 +319,20 @@ class DJHandler(http.server.SimpleHTTPRequestHandler):
             self._json_response({"tracks": tracks})
 
         elif path == '/api/waveform/1':
-            self._json_response({"waveform": dj.deck1.waveform})
+            self._json_response({
+                "peaks": getattr(dj.deck1, 'waveform_peaks', []),
+                "colors": getattr(dj.deck1, 'waveform_colors', []),
+                "rms": dj.deck1.waveform,
+                "waveform": dj.deck1.waveform,  # backward compat
+            })
 
         elif path == '/api/waveform/2':
-            self._json_response({"waveform": dj.deck2.waveform})
+            self._json_response({
+                "peaks": getattr(dj.deck2, 'waveform_peaks', []),
+                "colors": getattr(dj.deck2, 'waveform_colors', []),
+                "rms": dj.deck2.waveform,
+                "waveform": dj.deck2.waveform,  # backward compat
+            })
 
         elif path == '/api/mixlog':
             try:

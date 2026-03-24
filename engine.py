@@ -319,7 +319,9 @@ class Deck:
         self.mix_out_points = []    # best points to start mixing out
         self.mix_in_points = []     # best points for incoming track
         self.peak_time = 0          # when the track hits peak energy
-        self.waveform = []          # downsampled RMS values for UI visualization
+        self.waveform = []          # downsampled RMS values for UI visualization (backward compat)
+        self.waveform_peaks = []    # peak amplitude per bin (2000 bins) for pro waveform
+        self.waveform_colors = []   # [bass, mid, high] ratios per bin for frequency coloring
 
     def load(self, filepath):
         """Load an audio file onto this deck."""
@@ -374,15 +376,15 @@ class Deck:
             self.beat_grid_offset = 0
             self.first_beat = 0
 
-        # Compute waveform: ~500 RMS values across the track (vectorized)
+        # Compute waveform: ~500 RMS values across the track (backward compat)
         n_bins = 500
         n_samples = len(self.audio)
         bin_size = max(1, n_samples // n_bins)
         usable = bin_size * n_bins
         if usable <= n_samples and n_samples > 0:
             # Vectorized: reshape into bins and compute RMS per bin
-            mono = self.audio[:usable].mean(axis=1) if self.audio.ndim == 2 else self.audio[:usable]
-            bins = mono[:usable].reshape(n_bins, bin_size)
+            mono_rms = self.audio[:usable].mean(axis=1) if self.audio.ndim == 2 else self.audio[:usable]
+            bins = mono_rms[:usable].reshape(n_bins, bin_size)
             rms_values = np.sqrt(np.mean(bins ** 2, axis=1))
             max_rms = rms_values.max()
             if max_rms > 0:
@@ -390,6 +392,41 @@ class Deck:
             self.waveform = np.round(rms_values, 3).tolist()
         else:
             self.waveform = []
+
+        # Compute pro waveform: 2000 peak bins + frequency color data
+        from numpy.fft import rfft, rfftfreq
+        n_pro_bins = 2000
+        pro_bin_size = max(1, n_samples // n_pro_bins)
+        mono_full = self.audio.mean(axis=1) if self.audio.ndim == 2 else self.audio
+
+        peaks = []
+        colors = []
+        for i in range(0, min(n_pro_bins * pro_bin_size, len(mono_full)), pro_bin_size):
+            chunk = mono_full[i:i + pro_bin_size]
+            if len(chunk) == 0:
+                break
+            # Peak amplitude
+            peaks.append(float(np.max(np.abs(chunk))))
+
+            # Frequency analysis for color
+            if len(chunk) >= 64:
+                fft_vals = np.abs(rfft(chunk))
+                freqs = rfftfreq(len(chunk), 1.0 / SAMPLE_RATE)
+                bass = float(np.sum(fft_vals[(freqs >= 20) & (freqs < 250)]))
+                mid = float(np.sum(fft_vals[(freqs >= 250) & (freqs < 4000)]))
+                high = float(np.sum(fft_vals[freqs >= 4000]))
+                total = bass + mid + high + 0.001
+                colors.append([round(bass / total, 2), round(mid / total, 2), round(high / total, 2)])
+            else:
+                colors.append([0.5, 0.3, 0.2])
+
+        # Normalize peaks
+        max_peak = max(peaks) if peaks else 1.0
+        if max_peak > 0:
+            self.waveform_peaks = [round(p / max_peak, 3) for p in peaks]
+        else:
+            self.waveform_peaks = [0.0] * len(peaks)
+        self.waveform_colors = colors
 
         mins = int(self.duration // 60)
         secs = int(self.duration % 60)

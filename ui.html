@@ -1026,8 +1026,11 @@ async function fetchWaveform(deckNum) {
   try {
     const res = await fetch(API + '/api/waveform/' + deckNum);
     const data = await res.json();
-    if (data.waveform && data.waveform.length > 0) {
-      realWaveforms[deckNum] = data.waveform;
+    if (data.peaks && data.peaks.length > 0) {
+      realWaveforms[deckNum] = { peaks: data.peaks, colors: data.colors || [], rms: data.rms || data.waveform || [] };
+    } else if (data.waveform && data.waveform.length > 0) {
+      // Backward compat: old format was just an array
+      realWaveforms[deckNum] = { peaks: data.waveform, colors: [], rms: data.waveform };
     }
   } catch { /* ignore */ }
 }
