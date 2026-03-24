@@ -8,7 +8,8 @@
  * Tools: dj_load_track, dj_play, dj_pause, dj_stop, dj_eject,
  *        dj_crossfade, dj_transition, dj_sync, dj_eq, dj_filter,
  *        dj_volume, dj_status, dj_analyze_track, dj_list_tracks,
- *        dj_suggest_next, dj_search_youtube, dj_download_track
+ *        dj_suggest_next, dj_search_youtube, dj_download_track,
+ *        dj_set_history, dj_record, dj_energy_arc, dj_save_set
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -21,7 +22,7 @@ import {
   formatKeyInfo,
   getCompatibleKeys,
 } from './camelot.js';
-import { readdirSync, statSync, existsSync } from 'fs';
+import { readdirSync, statSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join, basename, extname } from 'path';
 import { execSync, exec } from 'child_process';
 import { homedir } from 'os';
@@ -31,6 +32,37 @@ import { homedir } from 'os';
 const MIXXX_API = process.env.MIXXX_API || 'http://localhost:7778';
 const MUSIC_DIR = process.env.DJ_MUSIC_DIR || join(homedir(), 'Music', 'DJTreta');
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus']);
+
+// ── Set History State ────────────────────────────────────────────────
+
+interface SetEntry {
+  track: string;
+  deck: number;
+  timestamp: string;
+  energy?: number;
+  technique?: string;
+}
+
+let setHistory: SetEntry[] = [];
+const SETS_DIR = join(homedir(), 'beings', 'himani', 'skills', 'dj', 'sets');
+
+function estimateEnergy(bpm: number): number {
+  // Heuristic energy estimation based on BPM
+  // <100 = chill (1-3), 100-125 = moderate (3-5), 125-135 = energetic (5-7), 135+ = high (7-10)
+  if (bpm <= 0) return 5; // unknown
+  if (bpm < 100) return Math.max(1, Math.round((bpm - 60) / 15) + 1);
+  if (bpm < 125) return Math.round(3 + (bpm - 100) * 0.08);
+  if (bpm < 135) return Math.round(5 + (bpm - 125) * 0.2);
+  return Math.min(10, Math.round(7 + (bpm - 135) * 0.1));
+}
+
+function isTrackAlreadyPlayed(trackPath: string): boolean {
+  const trackName = basename(trackPath);
+  return setHistory.some(entry => {
+    const entryName = basename(entry.track);
+    return entryName === trackName || entry.track === trackPath;
+  });
+}
 
 // ── Initialize ──────────────────────────────────────────────────────
 
@@ -153,12 +185,14 @@ server.tool(
 
 server.tool(
   'dj_load_track',
-  'Load a track file onto a deck',
+  'Load a track file onto a deck. Warns if track was already played in this set (use force=true to override)',
   {
     deck: z.number().int().min(1).max(2).describe('Deck number (1 or 2)'),
     track: z.string().describe('Full file path to the audio track'),
+    force: z.boolean().default(false).describe('Force load even if track was already played'),
+    technique: z.string().optional().describe('Transition technique used (for set history logging)'),
   },
-  async ({ deck, track }) => {
+  async ({ deck, track, force, technique }) => {
     try {
       // Expand ~ if present
       const trackPath = track.replace(/^~/, homedir());
@@ -167,8 +201,43 @@ server.tool(
         return { content: [{ type: 'text', text: `File not found: ${trackPath}` }], isError: true };
       }
 
+      // Check for repeat
+      if (isTrackAlreadyPlayed(trackPath) && !force) {
+        return {
+          content: [{
+            type: 'text',
+            text: `WARNING: "${basename(trackPath)}" was already played in this set. Use force=true to load anyway.`,
+          }],
+          isError: true,
+        };
+      }
+
       const result = await mixxx.loadTrack(deck, trackPath);
-      return { content: [{ type: 'text', text: `Loaded onto Deck ${deck}: ${basename(trackPath)}\n${JSON.stringify(result)}` }] };
+
+      // Estimate energy from deck analysis after load
+      let energy = 5;
+      try {
+        await sleep(500); // brief pause for Mixxx to analyze
+        const deckStatus = await mixxx.getDeckStatus(deck);
+        if (deckStatus.track_loaded && deckStatus.bpm > 0) {
+          energy = estimateEnergy(deckStatus.bpm);
+        }
+      } catch {
+        // non-critical, use default energy
+      }
+
+      // Log to set history
+      const entry: SetEntry = {
+        track: trackPath,
+        deck,
+        timestamp: new Date().toISOString(),
+        energy,
+        technique,
+      };
+      setHistory.push(entry);
+
+      const repeatNote = isTrackAlreadyPlayed(trackPath) ? ' (REPEAT — forced)' : '';
+      return { content: [{ type: 'text', text: `Loaded onto Deck ${deck}: ${basename(trackPath)}${repeatNote}\nEnergy: ${energy}/10\n${JSON.stringify(result)}` }] };
     } catch (e: any) {
       return { content: [{ type: 'text', text: `Failed to load track: ${e.message}` }], isError: true };
     }
@@ -599,20 +668,30 @@ server.tool(
         `Available tracks from library:`,
       ];
 
-      // Scan library and show all tracks (we don't have key metadata for files,
-      // so we list everything and note which keys would work)
+      // Scan library, exclude already-played tracks
       const genres = scanMusicDir();
       let trackCount = 0;
+      let skippedCount = 0;
       for (const genre of genres) {
         for (const track of genre.tracks) {
+          if (isTrackAlreadyPlayed(track.path)) {
+            skippedCount++;
+            continue; // exclude already-played tracks
+          }
           lines.push(`  [${genre.genre}] ${track.name}`);
           trackCount++;
         }
       }
 
-      if (trackCount === 0) {
+      if (trackCount === 0 && skippedCount === 0) {
         lines.push('  (no tracks in library)');
+      } else if (trackCount === 0) {
+        lines.push(`  (all ${skippedCount} tracks already played!)`);
       } else {
+        if (skippedCount > 0) {
+          lines.push('');
+          lines.push(`(${skippedCount} already-played track${skippedCount > 1 ? 's' : ''} excluded)`);
+        }
         lines.push('');
         lines.push(`Load a track and Mixxx will analyze its key. Use dj_analyze_track to check compatibility.`);
       }
@@ -744,6 +823,172 @@ server.tool(
     } catch (e: any) {
       return { content: [{ type: 'text', text: `Download failed: ${e.message}` }], isError: true };
     }
+  }
+);
+
+// ── Tool: dj_set_history ─────────────────────────────────────────
+
+server.tool(
+  'dj_set_history',
+  'Returns list of tracks played in this session with timestamps, energy, and techniques',
+  {},
+  async () => {
+    if (setHistory.length === 0) {
+      return { content: [{ type: 'text', text: 'No tracks played yet in this set.' }] };
+    }
+
+    const lines: string[] = [`Set History (${setHistory.length} tracks):\n`];
+    for (let i = 0; i < setHistory.length; i++) {
+      const entry = setHistory[i];
+      const time = new Date(entry.timestamp).toLocaleTimeString();
+      const energyStr = entry.energy ? ` [Energy: ${entry.energy}/10]` : '';
+      const techStr = entry.technique ? ` (${entry.technique})` : '';
+      lines.push(`${i + 1}. ${time} — Deck ${entry.deck}: ${basename(entry.track)}${energyStr}${techStr}`);
+    }
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  }
+);
+
+// ── Tool: dj_record ─────────────────────────────────────────────
+
+server.tool(
+  'dj_record',
+  'Start, stop, or check status of Mixxx recording',
+  {
+    action: z.enum(['start', 'stop', 'status']).describe('Recording action: start, stop, or status'),
+  },
+  async ({ action }) => {
+    try {
+      if (action === 'status') {
+        const val = await mixxx.getControl('[Recording]', 'status');
+        const statusLabel = val === 2 ? 'RECORDING' : val === 1 ? 'READY' : 'STOPPED';
+        return { content: [{ type: 'text', text: `Recording status: ${statusLabel}` }] };
+      }
+
+      // toggle_recording toggles between recording and not recording
+      await mixxx.control('[Recording]', 'toggle_recording', 1);
+
+      // Brief pause then check status
+      await sleep(500);
+      const val = await mixxx.getControl('[Recording]', 'status');
+      const statusLabel = val === 2 ? 'RECORDING' : val === 1 ? 'READY' : 'STOPPED';
+
+      return { content: [{ type: 'text', text: `Recording ${action === 'start' ? 'started' : 'stopped'}. Status: ${statusLabel}` }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Recording failed: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// ── Tool: dj_energy_arc ─────────────────────────────────────────
+
+server.tool(
+  'dj_energy_arc',
+  'Returns the energy arc over the current set — energy level for each track over time',
+  {},
+  async () => {
+    if (setHistory.length === 0) {
+      return { content: [{ type: 'text', text: 'No tracks played yet — no energy data.' }] };
+    }
+
+    const lines: string[] = ['Energy Arc:\n'];
+
+    for (let i = 0; i < setHistory.length; i++) {
+      const entry = setHistory[i];
+      const energy = entry.energy ?? 5;
+      const bar = '\u2588'.repeat(energy) + '\u2591'.repeat(10 - energy);
+      const time = new Date(entry.timestamp).toLocaleTimeString();
+      lines.push(`${time} [${bar}] ${energy}/10  ${basename(entry.track)}`);
+    }
+
+    // Summary stats
+    const energies = setHistory.map(e => e.energy ?? 5);
+    const avg = energies.reduce((a, b) => a + b, 0) / energies.length;
+    const peak = Math.max(...energies);
+    const low = Math.min(...energies);
+
+    lines.push('');
+    lines.push(`Average energy: ${avg.toFixed(1)}/10`);
+    lines.push(`Peak: ${peak}/10 | Low: ${low}/10`);
+    lines.push(`Tracks: ${setHistory.length}`);
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  }
+);
+
+// ── Tool: dj_save_set ───────────────────────────────────────────
+
+server.tool(
+  'dj_save_set',
+  'Save the current set history, energy arc, and metadata to a JSON file',
+  {},
+  async () => {
+    if (setHistory.length === 0) {
+      return { content: [{ type: 'text', text: 'No tracks played — nothing to save.' }], isError: true };
+    }
+
+    // Create sets directory if needed
+    if (!existsSync(SETS_DIR)) {
+      mkdirSync(SETS_DIR, { recursive: true });
+    }
+
+    const now = new Date();
+    const dateStr = now.toISOString().slice(0, 10);
+    const timeStr = now.toTimeString().slice(0, 5).replace(':', '-');
+    const filename = `${dateStr}_${timeStr}.json`;
+    const filepath = join(SETS_DIR, filename);
+
+    // Calculate duration
+    const firstTimestamp = new Date(setHistory[0].timestamp);
+    const lastTimestamp = new Date(setHistory[setHistory.length - 1].timestamp);
+    const durationMinutes = Math.round((lastTimestamp.getTime() - firstTimestamp.getTime()) / 60000);
+
+    // Build energy arc
+    const energyArc = setHistory.map(entry => ({
+      time: entry.timestamp,
+      energy: entry.energy ?? 5,
+      track: basename(entry.track),
+    }));
+
+    const energies = setHistory.map(e => e.energy ?? 5);
+
+    const setData = {
+      date: dateStr,
+      start_time: setHistory[0].timestamp,
+      end_time: now.toISOString(),
+      duration_minutes: durationMinutes,
+      track_count: setHistory.length,
+      tracks: setHistory.map((entry, i) => ({
+        position: i + 1,
+        track: basename(entry.track),
+        path: entry.track,
+        deck: entry.deck,
+        timestamp: entry.timestamp,
+        energy: entry.energy ?? 5,
+        technique: entry.technique || null,
+      })),
+      energy_arc: energyArc,
+      energy_stats: {
+        average: parseFloat((energies.reduce((a, b) => a + b, 0) / energies.length).toFixed(1)),
+        peak: Math.max(...energies),
+        low: Math.min(...energies),
+      },
+    };
+
+    writeFileSync(filepath, JSON.stringify(setData, null, 2));
+
+    return {
+      content: [{
+        type: 'text',
+        text: [
+          `Set saved: ${filepath}`,
+          `Tracks: ${setHistory.length}`,
+          `Duration: ${durationMinutes} minutes`,
+          `Avg energy: ${setData.energy_stats.average}/10`,
+        ].join('\n'),
+      }],
+    };
   }
 );
 

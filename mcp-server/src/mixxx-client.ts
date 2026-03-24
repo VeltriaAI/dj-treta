@@ -130,6 +130,18 @@ export class MixxxClient {
     return data;
   }
 
+  // ── Generic Control ────────────────────────────────────────────
+
+  async control(group: string, key: string, value: number = 1): Promise<any> {
+    const { data } = await this.http.post('/api/control', { group, key, value });
+    return data;
+  }
+
+  async getControl(group: string, key: string): Promise<number> {
+    const { data } = await this.http.get('/api/control', { params: { group, key } });
+    return data.value ?? 0;
+  }
+
   // ── Health Check ────────────────────────────────────────────────
 
   async isAlive(): Promise<boolean> {

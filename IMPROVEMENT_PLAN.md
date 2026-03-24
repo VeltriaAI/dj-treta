@@ -505,3 +505,44 @@ This is the P2.8 autonomous daemon — the ultimate milestone. Everything in P0 
 | Modify | `mixxx-treta/src/api/apiserver.cpp` — fix `/api/tracks`, add WebSocket | P1.5, P1.9 |
 | Modify | `skills/dj/dj.py` — replace naive planning or redirect to brain.py | P1.1 |
 | Modify | `skills/dj/ui.html` — connect to live state, show set plan | P2.5 |
+
+## Future Vision: DJ Treta Live
+
+**Concept:** Live streaming AI DJ that takes audience requests, analyzes compatibility, and mixes them in real-time.
+
+**Stack:**
+- Frontend: React/Next.js live page with requests, chat, waveform viz
+- Audio streaming: Mixxx built-in Icecast/Shoutcast broadcasting
+- DJ Brain: Evaluates requests vs current set (BPM, key, energy flow)
+- Audience interaction: vote on energy direction, request songs, chat with DJ
+
+**Features:**
+- Song request → AI evaluates fit → accepts/queues/declines with reason
+- Live waveform visualization
+- Audience energy voting
+- DJ Treta responds to crowd in chat
+- Request queue with estimated play time
+
+**Priority:** P3 (after MCP server + DJ brain are solid)
+
+## Energy Meter & Set Graph
+
+**Concept:** Track energy level (1-10) for every track played. Plot it over time to visualize the set's arc. Use it to predict crowd feel and decide next move.
+
+**Implementation:**
+- Each track gets an energy rating when loaded (from Mixxx analysis: RMS loudness → normalized to 1-10)
+- Set history stored: [{track, energy, timestamp, technique_used}]
+- Graph rendered in UI (energy vs time, with track names on x-axis)
+- DJ brain rules:
+  - After 3+ tracks at energy 8-9: must dip to 5-6
+  - After a dip: can build back up (never jump >2 levels at once)
+  - Peak moments (energy 9-10) limited to 2-3 tracks max
+  - Opening: start at 3-4, build gradually
+  - Closing: come down from peak to 5-6 over last 3 tracks
+
+**MCP Tools:**
+- `dj_energy_graph` — returns ASCII/data of energy over the current set
+- `dj_suggest_energy` — recommends up/down/hold based on current arc
+- `dj_rate_energy` — manually rate a track's energy (override auto-detection)
+
+**Priority:** P1 (after MCP server is connected)
