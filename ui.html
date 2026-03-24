@@ -136,12 +136,13 @@
     width: 90px;
   }
 
-  /* ── Stacked Waveform View ────────────────────────────── */
+  /* ── Stacked Waveform View (10s zoomed beat-sync) ───── */
   .stacked-waveforms {
     flex-shrink: 0;
-    background: #0a0a0e;
+    background: #0e0e14;
     border-bottom: 1px solid var(--border);
     display: none;
+    position: relative;
   }
   .stacked-waveforms.visible { display: block; }
 
@@ -173,16 +174,17 @@
   .stacked-wf-row[data-deck="1"] .stacked-wf-label { color: var(--cyan); }
   .stacked-wf-row[data-deck="2"] .stacked-wf-label { color: var(--magenta); }
 
-  .stacked-wf-playhead {
+  .stacked-wf-center-line {
     position: absolute;
     top: 0;
     bottom: 0;
-    width: 1px;
-    background: #fff;
-    box-shadow: 0 0 4px rgba(255,255,255,0.6);
-    z-index: 3;
+    left: 50%;
+    width: 2px;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.5), 0 0 12px rgba(255, 255, 255, 0.2);
+    z-index: 5;
     pointer-events: none;
-    transition: left 0.35s linear;
   }
 
   /* ── BPM Sync Controls ──────────────────────────────── */
@@ -862,17 +864,16 @@
   </div>
 </div>
 
-<!-- Stacked Waveform View -->
+<!-- Stacked Waveform View (10s zoomed beat-sync) -->
 <div class="stacked-waveforms" id="stackedWaveforms">
+  <div class="stacked-wf-center-line"></div>
   <div class="stacked-wf-row" data-deck="1">
     <span class="stacked-wf-label">A</span>
     <canvas id="stackedCanvas1"></canvas>
-    <div class="stacked-wf-playhead" id="stackedPlayhead1"></div>
   </div>
   <div class="stacked-wf-row" data-deck="2">
     <span class="stacked-wf-label">B</span>
     <canvas id="stackedCanvas2"></canvas>
-    <div class="stacked-wf-playhead" id="stackedPlayhead2"></div>
   </div>
 </div>
 
@@ -1190,7 +1191,7 @@ function drawWaveform(deckNum) {
   ctx.globalAlpha = 1;
 }
 
-// ── Stacked Waveform View ─────────────────────────────
+// ── Stacked Waveform View (10s zoomed beat-sync) ──────
 function drawStackedWaveform(deckNum) {
   const canvasId = deckNum === 1 ? 'stackedCanvas1' : 'stackedCanvas2';
   const canvas = document.getElementById(canvasId);
@@ -1213,39 +1214,73 @@ function drawStackedWaveform(deckNum) {
   const H = rect.height;
   ctx.clearRect(0, 0, W, H);
 
-  const numBars = wf.length;
-  const barW = W / numBars;
-  const gap = Math.max(0.3, barW * 0.1);
-  const effectiveBarW = barW - gap;
+  // Deck state
+  const d = deckNum === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
+  const totalSec = d ? parseTime(d.duration) : 0;
+  const currentSec = d ? parseTime(d.position) : 0;
+  if (totalSec <= 0) return;
+
+  // 10-second window centered on playhead
+  const windowSec = 10;
+  const halfWindow = windowSec / 2;
+  const startSec = currentSec - halfWindow;
+  const endSec = currentSec + halfWindow;
 
   // Color
   const c = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
 
-  // Get playhead position
-  const d = deckNum === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
-  const total = d ? parseTime(d.duration) : 0;
-  const pos = d ? parseTime(d.position) : 0;
-  const playPct = total > 0 ? pos / total : 0;
-  const playheadBar = Math.floor(playPct * numBars);
+  // Interpolate waveform data for the visible window
+  // Generate ~200 visual bars by sampling from the 500-bin waveform with linear interpolation
+  const numVisualBars = 200;
+  const gap = 1;
+  const barW = W / numVisualBars;
+  const effectiveBarW = barW - gap;
 
-  for (let i = 0; i < numBars; i++) {
-    const v = wf[i];
+  for (let i = 0; i < numVisualBars; i++) {
+    // Map bar index to time position
+    const t = startSec + (i / numVisualBars) * windowSec;
+
+    // Skip bars outside the track range
+    if (t < 0 || t >= totalSec) continue;
+
+    // Map time to waveform bin (fractional) and interpolate
+    const binF = (t / totalSec) * wf.length;
+    const binLow = Math.floor(binF);
+    const binHigh = Math.min(binLow + 1, wf.length - 1);
+    const frac = binF - binLow;
+    const v = wf[binLow] * (1 - frac) + wf[binHigh] * frac;
+
     if (v <= 0.005) continue;
 
     const h = v * H * 0.85;
     const x = i * barW + gap / 2;
     const yTop = (H - h) / 2;
 
-    const isPast = i < playheadBar;
-    const alpha = isPast ? 0.15 : (0.4 + v * 0.5);
+    // Left of center = past (dimmed), right = upcoming (full)
+    const isPast = i < numVisualBars / 2;
+    const alpha = isPast ? 0.3 : (0.5 + v * 0.45);
 
-    ctx.fillStyle = `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
-    ctx.fillRect(x, yTop, effectiveBarW, h);
+    // Gradient: slightly brighter at the top of bars
+    const grad = ctx.createLinearGradient(x, yTop, x, yTop + h);
+    grad.addColorStop(0, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`);
+    grad.addColorStop(1, `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha * 0.6})`);
+    ctx.fillStyle = grad;
+
+    // Rounded top bars
+    const radius = Math.min(effectiveBarW / 2, 1.5);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, yTop);
+    ctx.lineTo(x + effectiveBarW - radius, yTop);
+    ctx.quadraticCurveTo(x + effectiveBarW, yTop, x + effectiveBarW, yTop + radius);
+    ctx.lineTo(x + effectiveBarW, yTop + h - radius);
+    ctx.quadraticCurveTo(x + effectiveBarW, yTop + h, x + effectiveBarW - radius, yTop + h);
+    ctx.lineTo(x + radius, yTop + h);
+    ctx.quadraticCurveTo(x, yTop + h, x, yTop + h - radius);
+    ctx.lineTo(x, yTop + radius);
+    ctx.quadraticCurveTo(x, yTop, x + radius, yTop);
+    ctx.closePath();
+    ctx.fill();
   }
-
-  // Update playhead position
-  const playhead = document.getElementById('stackedPlayhead' + deckNum);
-  if (playhead) playhead.style.left = (playPct * 100) + '%';
 }
 
 function updateStackedView() {
