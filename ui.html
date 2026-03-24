@@ -7,361 +7,626 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
-  body {
-    background: #0a0a0f;
-    color: #e0e0e0;
-    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', monospace;
-    height: 100vh;
-    overflow: hidden;
+  :root {
+    --bg: #0a0a0e;
+    --surface: #111116;
+    --surface2: #18181f;
+    --border: #1e1e28;
+    --text: #c8c8d0;
+    --text-dim: #555560;
+    --cyan: #00d4ff;
+    --cyan-dim: rgba(0, 212, 255, 0.15);
+    --cyan-glow: rgba(0, 212, 255, 0.3);
+    --magenta: #ff2d7b;
+    --magenta-dim: rgba(255, 45, 123, 0.15);
+    --magenta-glow: rgba(255, 45, 123, 0.3);
+    --green: #00e676;
   }
 
-  /* Header */
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .mono {
+    font-family: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
   .header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 24px;
-    background: linear-gradient(180deg, #12121a, #0a0a0f);
-    border-bottom: 1px solid #1a1a2e;
+    padding: 8px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 42px;
   }
+
   .logo {
-    font-size: 20px;
+    font-size: 15px;
     font-weight: 700;
-    background: linear-gradient(135deg, #00d4ff, #7b2ff7);
+    letter-spacing: 3px;
+    background: linear-gradient(135deg, var(--cyan), var(--magenta));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    letter-spacing: 2px;
-  }
-  .logo span { font-weight: 300; opacity: 0.6; }
-  .engine-status {
-    font-size: 11px;
-    padding: 4px 12px;
-    border-radius: 12px;
-    background: #1a2a1a;
-    color: #4caf50;
-    border: 1px solid #2a3a2a;
-  }
-  .engine-status.stopped { background: #2a1a1a; color: #f44336; border-color: #3a2a2a; }
-
-  /* Main Layout */
-  .main {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 0;
-    height: calc(100vh - 52px - 180px);
-    padding: 16px;
   }
 
-  /* Deck */
-  .deck {
-    background: #111118;
-    border-radius: 12px;
-    padding: 20px;
-    border: 1px solid #1a1a2e;
+  .master-section {
     display: flex;
-    flex-direction: column;
+    align-items: center;
     gap: 16px;
   }
-  .deck.active { border-color: #7b2ff7; box-shadow: 0 0 20px rgba(123, 47, 247, 0.15); }
 
-  .deck-header {
+  .live-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 3px 10px;
+    border-radius: 3px;
+    background: #1a1a1a;
+    color: #555;
+    border: 1px solid #2a2a2a;
+  }
+  .live-badge.on {
+    background: rgba(0, 230, 118, 0.15);
+    color: var(--green);
+    border-color: rgba(0, 230, 118, 0.3);
+    animation: pulse-live 2s ease-in-out infinite;
+  }
+  @keyframes pulse-live {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .master-vol {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .master-vol label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .master-slider {
+    width: 80px;
+  }
+
+  /* ── Decks Area ─────────────────────────────────────── */
+  .decks-area {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    gap: 12px;
+  }
+
+  /* ── Deck ───────────────────────────────────────────── */
+  .deck {
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .deck[data-deck="1"].active {
+    border-color: rgba(0, 212, 255, 0.3);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+  }
+  .deck[data-deck="2"].active {
+    border-color: rgba(255, 45, 123, 0.3);
+    box-shadow: 0 0 20px rgba(255, 45, 123, 0.08);
+  }
+
+  .deck-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .deck-label {
-    font-size: 11px;
-    text-transform: uppercase;
+    font-size: 10px;
+    font-weight: 700;
     letter-spacing: 3px;
-    color: #555;
+    text-transform: uppercase;
   }
-  .deck-time {
-    font-size: 28px;
-    font-weight: 300;
-    color: #00d4ff;
-    font-variant-numeric: tabular-nums;
+  .deck[data-deck="1"] .deck-label { color: var(--cyan); }
+  .deck[data-deck="2"] .deck-label { color: var(--magenta); }
+
+  .deck-bpm {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
   }
+  .deck-bpm span { color: var(--text); }
 
   .track-name {
     font-size: 13px;
-    color: #aaa;
+    color: #666;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     min-height: 20px;
+    position: relative;
   }
   .track-name.playing { color: #fff; }
+  .track-name-inner {
+    display: inline-block;
+    white-space: nowrap;
+  }
+  .track-name.scrolling .track-name-inner {
+    animation: scroll-text 12s linear infinite;
+  }
+  @keyframes scroll-text {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Time display */
+  .time-display {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .time-current {
+    font-size: 36px;
+    font-weight: 300;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .deck[data-deck="1"] .time-current { color: var(--cyan); }
+  .deck[data-deck="2"] .time-current { color: var(--magenta); }
+
+  .time-remaining {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Waveform visualization */
+  .waveform {
+    height: 48px;
+    background: var(--bg);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .waveform canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .waveform-playhead {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    transition: left 0.4s linear;
+    z-index: 2;
+  }
 
   /* Progress bar */
-  .progress-container {
-    height: 40px;
-    background: #0a0a12;
-    border-radius: 6px;
+  .progress-wrap {
+    height: 4px;
+    background: #0d0d12;
+    border-radius: 2px;
     overflow: hidden;
-    position: relative;
     cursor: pointer;
   }
-  .progress-bar {
+  .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #7b2ff7, #00d4ff);
-    transition: width 0.3s linear;
-    opacity: 0.6;
+    border-radius: 2px;
+    transition: width 0.4s linear;
+    width: 0%;
   }
-  .progress-text {
-    position: absolute;
-    top: 50%;
-    right: 12px;
-    transform: translateY(-50%);
-    font-size: 11px;
-    color: #888;
+  .deck[data-deck="1"] .progress-fill {
+    background: linear-gradient(90deg, var(--cyan), rgba(0, 212, 255, 0.4));
+  }
+  .deck[data-deck="2"] .progress-fill {
+    background: linear-gradient(90deg, var(--magenta), rgba(255, 45, 123, 0.4));
   }
 
-  /* Controls */
-  .controls {
+  /* Deck controls */
+  .deck-controls {
     display: flex;
-    gap: 8px;
     align-items: center;
     justify-content: center;
+    gap: 8px;
+    margin-top: auto;
   }
-  .btn {
-    background: #1a1a2e;
-    border: 1px solid #2a2a3e;
-    color: #ccc;
-    padding: 8px 16px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: inherit;
-    font-size: 12px;
-    transition: all 0.15s;
-  }
-  .btn:hover { background: #2a2a3e; color: #fff; }
-  .btn.play { background: #1a2a1a; border-color: #2a4a2a; color: #4caf50; font-size: 16px; padding: 8px 20px; }
-  .btn.play:hover { background: #2a4a2a; }
-  .btn.play.active { background: #4caf50; color: #000; }
-  .btn.stop { color: #f44336; }
 
-  /* Volume slider */
-  .slider-group {
+  .btn-play {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    background: var(--surface2);
+    color: #888;
+    font-size: 18px;
+    cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    transition: all 0.15s;
   }
-  .slider-group label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #555;
-    min-width: 30px;
+  .btn-play:hover { border-color: #555; color: #ccc; }
+
+  .deck[data-deck="1"] .btn-play.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    box-shadow: 0 0 16px rgba(0, 212, 255, 0.2);
   }
-  input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 4px;
-    background: #1a1a2e;
-    border-radius: 2px;
-    outline: none;
-  }
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #7b2ff7;
-    cursor: pointer;
+  .deck[data-deck="2"] .btn-play.active {
+    border-color: var(--magenta);
+    color: var(--magenta);
+    background: var(--magenta-dim);
+    box-shadow: 0 0 16px rgba(255, 45, 123, 0.2);
   }
 
-  /* Mixer (center column) */
+  /* ── Mixer (center) ────────────────────────────────── */
   .mixer {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 20px;
-    padding: 20px 16px;
-    min-width: 100px;
-  }
-  .mixer-label {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #555;
-  }
-  .crossfader-container {
-    writing-mode: bt-lr;
-    height: 200px;
-  }
-  .crossfader-container input[type="range"] {
-    -webkit-appearance: none;
-    width: 200px;
-    height: 6px;
-    transform: rotate(-90deg);
-    transform-origin: center;
+    gap: 16px;
+    padding: 16px 12px;
+    width: 80px;
   }
 
-  /* Playlist / Bottom */
-  .bottom {
-    padding: 12px 24px;
-    background: #0d0d14;
-    border-top: 1px solid #1a1a2e;
+  .crossfader-section {
     display: flex;
-    gap: 24px;
-    height: 180px;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
   }
-  .playlist {
+  .cf-label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .cf-indicator {
+    display: flex;
+    gap: 2px;
+    width: 100%;
+  }
+  .cf-bar {
+    height: 3px;
+    border-radius: 1px;
     flex: 1;
-    overflow-y: auto;
+    transition: opacity 0.2s;
   }
+  .cf-bar.left { background: var(--cyan); }
+  .cf-bar.right { background: var(--magenta); }
+
+  .crossfader-wrap {
+    width: 100%;
+    position: relative;
+  }
+
+  /* Transition indicator */
+  .transition-indicator {
+    text-align: center;
+    min-height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+  .blend-badge {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    background: rgba(123, 47, 247, 0.2);
+    color: #b388ff;
+    border: 1px solid rgba(123, 47, 247, 0.3);
+    display: none;
+  }
+  .blend-badge.active { display: block; animation: pulse-blend 1s ease-in-out infinite; }
+  @keyframes pulse-blend {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .blend-time {
+    font-size: 9px;
+    color: #666;
+    display: none;
+  }
+  .blend-time.active { display: block; }
+
+  .blend-progress {
+    width: 100%;
+    height: 3px;
+    background: #1a1a2e;
+    border-radius: 2px;
+    overflow: hidden;
+    display: none;
+  }
+  .blend-progress.active { display: block; }
+  .blend-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    transition: width 0.5s linear;
+    width: 0%;
+  }
+
+  /* ── Sliders (shared) ──────────────────────────────── */
+  input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 4px;
+    background: #1a1a22;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #888;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  input[type="range"]:hover::-webkit-slider-thumb { background: #bbb; }
+
+  .crossfader-wrap input[type="range"]::-webkit-slider-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    background: #ccc;
+  }
+
+  /* ── Playlist ───────────────────────────────────────── */
+  .playlist-area {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+  }
+
   .playlist-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
   }
   .playlist-header h3 {
-    font-size: 11px;
+    font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 2px;
-    color: #555;
+    color: var(--text-dim);
   }
+  .track-count {
+    font-size: 10px;
+    color: #444;
+  }
+
+  .playlist-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px;
+  }
+
   .track-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
-    border-radius: 6px;
-    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 4px;
     font-size: 12px;
-    color: #888;
+    color: #777;
+    cursor: default;
+    transition: background 0.1s;
+    gap: 12px;
+  }
+  .track-item:hover { background: var(--surface2); color: #bbb; }
+  .track-item.on-deck1 { color: var(--cyan); }
+  .track-item.on-deck2 { color: var(--magenta); }
+
+  .track-item .t-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .track-item .t-size { font-size: 10px; color: #333; min-width: 50px; text-align: right; }
+  .track-item .t-actions { display: none; gap: 4px; }
+  .track-item:hover .t-actions { display: flex; }
+  .track-item:hover .t-size { display: none; }
+
+  .load-btn {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    border: 1px solid;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
     transition: all 0.15s;
   }
-  .track-item:hover { background: #1a1a2e; color: #fff; }
-  .track-item.active { background: #1a1a2e; color: #00d4ff; }
-  .track-item .size { color: #444; font-size: 10px; }
-  .track-item .load-btns { display: none; gap: 4px; }
-  .track-item:hover .load-btns { display: flex; }
-  .track-item:hover .size { display: none; }
-  .load-btn {
-    background: #7b2ff7;
-    border: none;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 10px;
-    font-family: inherit;
+  .load-btn.d1 {
+    color: var(--cyan);
+    border-color: rgba(0, 212, 255, 0.3);
   }
-  .load-btn:hover { background: #9b4fff; }
+  .load-btn.d1:hover {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+  }
+  .load-btn.d2 {
+    color: var(--magenta);
+    border-color: rgba(255, 45, 123, 0.3);
+  }
+  .load-btn.d2:hover {
+    background: var(--magenta-dim);
+    border-color: var(--magenta);
+  }
 
-  .autodj-panel {
-    width: 200px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .autodj-panel h3 {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: #555;
-  }
-  .btn.autodj { width: 100%; }
-  .btn.autodj.active { background: #7b2ff7; color: #fff; border-color: #9b4fff; }
-
-  /* Scrollbar */
+  /* ── Scrollbar ──────────────────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2a2a3e; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #333; }
+
+  /* ── Responsive ─────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .decks-area {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr auto 1fr;
+    }
+    .mixer {
+      flex-direction: row;
+      width: 100%;
+      padding: 8px 16px;
+    }
+    .crossfader-section { flex: 1; }
+    .time-current { font-size: 28px; }
+  }
 </style>
 </head>
 <body>
 
+<!-- Header -->
 <div class="header">
-  <div class="logo">DJ TRETA <span>// AI DJ Engine</span></div>
-  <div class="engine-status" id="engineStatus">connecting...</div>
+  <div class="logo">DJ TRETA</div>
+  <div class="master-section">
+    <div class="master-vol">
+      <label>MASTER</label>
+      <input type="range" class="master-slider" min="0" max="100" value="80" id="masterVol"
+             oninput="setMaster(this.value/100)">
+    </div>
+    <div class="live-badge" id="liveBadge">LIVE</div>
+  </div>
 </div>
 
-<div class="main">
+<!-- Decks -->
+<div class="decks-area">
+
   <!-- Deck 1 -->
-  <div class="deck" id="deck1">
-    <div class="deck-header">
-      <span class="deck-label">Deck 1</span>
-      <span class="deck-time" id="deck1Time">--:--</span>
+  <div class="deck" data-deck="1" id="deck1">
+    <div class="deck-top">
+      <span class="deck-label">DECK 1</span>
+      <span class="deck-bpm mono" id="d1Bpm"></span>
     </div>
-    <div class="track-name" id="deck1Track">(empty)</div>
-    <div class="progress-container" onclick="seekDeck(1, event)">
-      <div class="progress-bar" id="deck1Progress" style="width: 0%"></div>
-      <span class="progress-text" id="deck1Remaining">--:--</span>
+    <div class="track-name" id="d1Track">
+      <span class="track-name-inner">(empty)</span>
     </div>
-    <div class="controls">
-      <button class="btn play" onclick="togglePlay(1)" id="deck1PlayBtn">▶</button>
-      <button class="btn stop" onclick="stopDeck(1)">■</button>
+    <div class="time-display mono">
+      <span class="time-current" id="d1Time">0:00</span>
+      <span class="time-remaining" id="d1Remain">-0:00</span>
     </div>
-    <div class="slider-group">
-      <label>Vol</label>
-      <input type="range" min="0" max="100" value="100" oninput="setVolume(1, this.value/100)" id="deck1Vol">
+    <div class="waveform" id="d1Waveform" onclick="seekDeck(1, event)">
+      <canvas id="d1Canvas"></canvas>
+      <div class="waveform-playhead" id="d1Playhead"></div>
+    </div>
+    <div class="progress-wrap" onclick="seekDeck(1, event)">
+      <div class="progress-fill" id="d1Progress"></div>
+    </div>
+    <div class="deck-controls">
+      <button class="btn-play" id="d1PlayBtn" onclick="togglePlay(1)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="d1PlayIcon">
+          <polygon points="6,4 20,12 6,20"/>
+        </svg>
+      </button>
     </div>
   </div>
 
   <!-- Mixer -->
   <div class="mixer">
-    <span class="mixer-label">D1</span>
-    <div class="crossfader-container">
-      <input type="range" min="0" max="100" value="50" oninput="setCrossfade(this.value/100)" id="crossfader">
-    </div>
-    <span class="mixer-label">D2</span>
-    <div style="margin-top: 12px;">
-      <div class="slider-group">
-        <label>Master</label>
-        <input type="range" min="0" max="100" value="80" oninput="setMaster(this.value/100)" id="masterVol">
+    <div class="crossfader-section">
+      <span class="cf-label">XFADER</span>
+      <div class="cf-indicator">
+        <div class="cf-bar left" id="cfLeft"></div>
+        <div class="cf-bar right" id="cfRight"></div>
+      </div>
+      <div class="crossfader-wrap">
+        <input type="range" min="0" max="100" value="50" id="crossfader"
+               oninput="setCrossfade(this.value/100)">
       </div>
     </div>
-    <button class="btn" onclick="doTransition()" style="margin-top: 8px; font-size: 10px;">TRANSITION</button>
-    <button class="btn" onclick="doDrop()" style="font-size: 10px; color: #f44336;">DROP</button>
+    <div class="transition-indicator">
+      <div class="blend-badge" id="blendBadge">BLENDING</div>
+      <div class="blend-progress" id="blendProgress">
+        <div class="blend-progress-fill" id="blendProgressFill"></div>
+      </div>
+      <div class="blend-time mono" id="blendTime"></div>
+    </div>
   </div>
 
   <!-- Deck 2 -->
-  <div class="deck" id="deck2">
-    <div class="deck-header">
-      <span class="deck-label">Deck 2</span>
-      <span class="deck-time" id="deck2Time">--:--</span>
+  <div class="deck" data-deck="2" id="deck2">
+    <div class="deck-top">
+      <span class="deck-label">DECK 2</span>
+      <span class="deck-bpm mono" id="d2Bpm"></span>
     </div>
-    <div class="track-name" id="deck2Track">(empty)</div>
-    <div class="progress-container" onclick="seekDeck(2, event)">
-      <div class="progress-bar" id="deck2Progress" style="width: 0%"></div>
-      <span class="progress-text" id="deck2Remaining">--:--</span>
+    <div class="track-name" id="d2Track">
+      <span class="track-name-inner">(empty)</span>
     </div>
-    <div class="controls">
-      <button class="btn play" onclick="togglePlay(2)" id="deck2PlayBtn">▶</button>
-      <button class="btn stop" onclick="stopDeck(2)">■</button>
+    <div class="time-display mono">
+      <span class="time-current" id="d2Time">0:00</span>
+      <span class="time-remaining" id="d2Remain">-0:00</span>
     </div>
-    <div class="slider-group">
-      <label>Vol</label>
-      <input type="range" min="0" max="100" value="100" oninput="setVolume(2, this.value/100)" id="deck2Vol">
+    <div class="waveform" id="d2Waveform" onclick="seekDeck(2, event)">
+      <canvas id="d2Canvas"></canvas>
+      <div class="waveform-playhead" id="d2Playhead"></div>
+    </div>
+    <div class="progress-wrap" onclick="seekDeck(2, event)">
+      <div class="progress-fill" id="d2Progress"></div>
+    </div>
+    <div class="deck-controls">
+      <button class="btn-play" id="d2PlayBtn" onclick="togglePlay(2)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="d2PlayIcon">
+          <polygon points="6,4 20,12 6,20"/>
+        </svg>
+      </button>
     </div>
   </div>
+
 </div>
 
-<!-- Bottom: Playlist + AutoDJ -->
-<div class="bottom">
-  <div class="playlist">
-    <div class="playlist-header">
-      <h3>Library</h3>
-    </div>
-    <div id="trackList"></div>
+<!-- Playlist -->
+<div class="playlist-area">
+  <div class="playlist-header">
+    <h3>Library</h3>
+    <span class="track-count" id="trackCount"></span>
   </div>
-  <div class="autodj-panel">
-    <h3>Auto DJ</h3>
-    <button class="btn autodj" id="autoDJBtn" onclick="toggleAutoDJ()">Start Auto DJ</button>
-    <button class="btn" onclick="skipTrack()">Skip ⏭</button>
-    <div id="autoDJStatus" style="font-size: 10px; color: #555; margin-top: 8px;"></div>
-  </div>
+  <div class="playlist-scroll" id="trackList"></div>
 </div>
 
 <script>
-const API = '';  // same origin
+const API = '';
 
-// ── API Calls ──────────────────────────────────────────────────────
+// ── State ──────────────────────────────────────────────
+let lastStatus = null;
+let transitionStart = null;
+let transitionDuration = null;
+let waveformHistory = { 1: new Float32Array(80).fill(0), 2: new Float32Array(80).fill(0) };
+let trackListData = [];
 
+// ── API ────────────────────────────────────────────────
 async function api(method, path, body) {
   const opts = { method };
   if (body) {
@@ -371,153 +636,245 @@ async function api(method, path, body) {
   try {
     const res = await fetch(API + path, opts);
     return await res.json();
-  } catch (e) {
-    return null;
-  }
+  } catch { return null; }
 }
 
-async function loadTrack(deck, filename) {
-  await api('POST', '/api/load', { deck, track: filename });
-}
+async function loadTrack(deck, filename) { await api('POST', '/api/load', { deck, track: filename }); }
 
 async function togglePlay(deck) {
-  const deckData = deck === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
-  if (deckData?.playing) {
-    await api('POST', '/api/pause', { deck });
-  } else {
-    await api('POST', '/api/play', { deck });
-  }
+  const d = deck === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
+  if (d?.playing) await api('POST', '/api/pause', { deck });
+  else await api('POST', '/api/play', { deck });
 }
 
-async function stopDeck(deck) {
-  await api('POST', '/api/pause', { deck });
-}
-
-async function setVolume(deck, level) {
-  await api('POST', '/api/volume', { deck, level });
-}
-
-async function setCrossfade(pos) {
-  await api('POST', '/api/crossfade', { position: pos });
-}
-
-async function setMaster(level) {
-  await api('POST', '/api/master', { level });
-}
-
-async function doTransition() {
-  const toDeck = lastStatus?.crossfader < 0.5 ? 2 : 1;
-  await api('POST', '/api/transition', { deck: toDeck, duration: 8 });
-}
-
-async function doDrop() {
-  const toDeck = lastStatus?.crossfader < 0.5 ? 2 : 1;
-  await api('POST', '/api/drop', { deck: toDeck });
-}
+async function setCrossfade(pos) { await api('POST', '/api/crossfade', { position: pos }); }
+async function setMaster(level) { await api('POST', '/api/master', { level }); }
 
 async function seekDeck(deck, event) {
-  const rect = event.target.closest('.progress-container').getBoundingClientRect();
-  const pct = (event.clientX - rect.left) / rect.width;
-  const deckData = deck === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
-  if (deckData) {
-    const parts = deckData.duration.split(':');
-    const totalSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
-    await api('POST', '/api/seek', { deck, seconds: pct * totalSec });
+  const el = event.target.closest('.waveform, .progress-wrap');
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
+  const d = deck === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
+  if (d) {
+    const total = parseTime(d.duration);
+    if (total > 0) await api('POST', '/api/seek', { deck, seconds: pct * total });
   }
 }
 
-async function toggleAutoDJ() {
-  if (lastStatus?.auto_dj?.enabled) {
-    await api('POST', '/api/autodj/stop');
-  } else {
-    await api('POST', '/api/autodj/start');
-  }
-}
-
-async function skipTrack() {
-  await api('POST', '/api/autodj/skip');
-}
-
-// ── Status Polling ─────────────────────────────────────────────────
-
-let lastStatus = null;
-
+// ── Helpers ────────────────────────────────────────────
 function parseTime(str) {
-  if (!str || str === '--:--') return 0;
+  if (!str || str === '--:--' || str === '0:00') return 0;
   const parts = str.split(':');
-  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  return parseInt(parts[0]) * 60 + parseFloat(parts[1] || 0);
 }
 
+// ── Waveform Drawing ──────────────────────────────────
+function drawWaveform(deckNum, energy, playing) {
+  const canvasId = deckNum === 1 ? 'd1Canvas' : 'd2Canvas';
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = rect.height;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Shift history left and add new value
+  const hist = waveformHistory[deckNum];
+  for (let i = 0; i < hist.length - 1; i++) hist[i] = hist[i + 1];
+
+  // Use energy if available, otherwise generate from playing state
+  let val = 0;
+  if (typeof energy === 'number' && energy > 0) {
+    val = energy;
+  } else if (playing) {
+    val = 0.3 + Math.random() * 0.5;
+  }
+  hist[hist.length - 1] = val;
+
+  const color = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
+  const barW = W / hist.length;
+
+  for (let i = 0; i < hist.length; i++) {
+    const v = hist[i];
+    if (v <= 0) continue;
+    const h = v * H * 0.85;
+    const x = i * barW;
+    const y = (H - h) / 2;
+    const alpha = 0.3 + v * 0.6;
+
+    ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
+    ctx.fillRect(x + 1, y, barW - 2, h);
+  }
+}
+
+// ── Update UI ─────────────────────────────────────────
 function updateUI(data) {
   if (!data) return;
   lastStatus = data;
 
-  // Engine status
-  const statusEl = document.getElementById('engineStatus');
-  statusEl.textContent = data.engine;
-  statusEl.className = 'engine-status' + (data.engine === 'stopped' ? ' stopped' : '');
+  // Live badge
+  const live = document.getElementById('liveBadge');
+  live.className = 'live-badge' + (data.engine !== 'stopped' ? ' on' : '');
 
-  // Deck 1
-  const d1 = data.deck1;
-  document.getElementById('deck1Time').textContent = d1.position;
-  document.getElementById('deck1Track').textContent = d1.track.replace(/\.mp3$/, '');
-  document.getElementById('deck1Track').className = 'track-name' + (d1.playing ? ' playing' : '');
-  document.getElementById('deck1Remaining').textContent = '-' + d1.remaining;
-  document.getElementById('deck1PlayBtn').textContent = d1.playing ? '⏸' : '▶';
-  document.getElementById('deck1PlayBtn').className = 'btn play' + (d1.playing ? ' active' : '');
-  document.getElementById('deck1').className = 'deck' + (d1.playing ? ' active' : '');
-
-  const d1Total = parseTime(d1.duration);
-  const d1Pos = parseTime(d1.position);
-  document.getElementById('deck1Progress').style.width = d1Total ? ((d1Pos / d1Total) * 100) + '%' : '0%';
-
-  // Deck 2
-  const d2 = data.deck2;
-  document.getElementById('deck2Time').textContent = d2.position;
-  document.getElementById('deck2Track').textContent = d2.track.replace(/\.mp3$/, '');
-  document.getElementById('deck2Track').className = 'track-name' + (d2.playing ? ' playing' : '');
-  document.getElementById('deck2Remaining').textContent = '-' + d2.remaining;
-  document.getElementById('deck2PlayBtn').textContent = d2.playing ? '⏸' : '▶';
-  document.getElementById('deck2PlayBtn').className = 'btn play' + (d2.playing ? ' active' : '');
-  document.getElementById('deck2').className = 'deck' + (d2.playing ? ' active' : '');
-
-  const d2Total = parseTime(d2.duration);
-  const d2Pos = parseTime(d2.position);
-  document.getElementById('deck2Progress').style.width = d2Total ? ((d2Pos / d2Total) * 100) + '%' : '0%';
-
-  // Crossfader (don't update if user is dragging)
-  if (!document.getElementById('crossfader').matches(':active')) {
-    document.getElementById('crossfader').value = data.crossfader * 100;
+  // Master volume (don't fight the user)
+  if (!document.getElementById('masterVol').matches(':active')) {
+    document.getElementById('masterVol').value = (data.master_volume || 0.8) * 100;
   }
 
-  // Auto DJ
-  const adj = data.auto_dj;
-  const adjBtn = document.getElementById('autoDJBtn');
-  adjBtn.textContent = adj.enabled ? 'Stop Auto DJ' : 'Start Auto DJ';
-  adjBtn.className = 'btn autodj' + (adj.enabled ? ' active' : '');
-  document.getElementById('autoDJStatus').textContent = adj.enabled
-    ? `Playing ${adj.current_index + 1}/${adj.playlist_length} — Deck ${adj.active_deck}`
-    : `${adj.playlist_length} tracks ready`;
+  // Decks
+  updateDeck(1, data.deck1);
+  updateDeck(2, data.deck2);
+
+  // Crossfader
+  if (!document.getElementById('crossfader').matches(':active')) {
+    document.getElementById('crossfader').value = (data.crossfader ?? 0.5) * 100;
+  }
+  const cf = data.crossfader ?? 0.5;
+  document.getElementById('cfLeft').style.opacity = 1 - cf * 0.7;
+  document.getElementById('cfRight').style.opacity = 0.3 + cf * 0.7;
+
+  // Transition detection
+  updateTransition(data);
+
+  // Highlight tracks in playlist
+  highlightPlaylistTracks(data);
 }
 
+function updateDeck(num, d) {
+  if (!d) return;
+  const prefix = num === 1 ? 'd1' : 'd2';
+
+  // Track name
+  const trackEl = document.getElementById(prefix + 'Track');
+  const innerEl = trackEl.querySelector('.track-name-inner');
+  const name = (d.track || '').replace(/\.mp3$/i, '') || '(empty)';
+  innerEl.textContent = name;
+  trackEl.className = 'track-name' + (d.playing ? ' playing' : '');
+
+  // Check if text overflows and needs scrolling
+  if (innerEl.scrollWidth > trackEl.clientWidth && d.playing) {
+    innerEl.textContent = name + '     ' + name + '     ';
+    trackEl.classList.add('scrolling');
+  } else {
+    trackEl.classList.remove('scrolling');
+  }
+
+  // BPM
+  const bpmEl = document.getElementById(prefix + 'Bpm');
+  if (d.bpm && d.bpm > 0) {
+    bpmEl.innerHTML = '<span>' + d.bpm.toFixed(1) + '</span> BPM';
+  } else {
+    bpmEl.textContent = '';
+  }
+
+  // Time
+  document.getElementById(prefix + 'Time').textContent = d.position || '0:00';
+  document.getElementById(prefix + 'Remain').textContent = d.remaining ? ('-' + d.remaining) : '-0:00';
+
+  // Progress
+  const total = parseTime(d.duration);
+  const pos = parseTime(d.position);
+  const pct = total > 0 ? (pos / total) * 100 : 0;
+  document.getElementById(prefix + 'Progress').style.width = pct + '%';
+  document.getElementById(prefix + 'Playhead').style.left = pct + '%';
+
+  // Play button
+  const btn = document.getElementById(prefix + 'PlayBtn');
+  btn.className = 'btn-play' + (d.playing ? ' active' : '');
+  const icon = document.getElementById(prefix + 'PlayIcon');
+  if (d.playing) {
+    icon.innerHTML = '<rect x="5" y="4" width="4" height="16"/><rect x="13" y="4" width="4" height="16"/>';
+  } else {
+    icon.innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+  }
+
+  // Deck active state
+  const deckEl = document.getElementById('deck' + num);
+  deckEl.className = 'deck' + (d.playing ? ' active' : '');
+
+  // Waveform
+  drawWaveform(num, d.energy, d.playing);
+}
+
+function updateTransition(data) {
+  const badge = document.getElementById('blendBadge');
+  const progress = document.getElementById('blendProgress');
+  const progressFill = document.getElementById('blendProgressFill');
+  const timeEl = document.getElementById('blendTime');
+
+  // Detect transition: both decks playing and crossfader moving
+  const bothPlaying = data.deck1?.playing && data.deck2?.playing;
+  const transitioning = data.transition_active || bothPlaying;
+
+  if (transitioning) {
+    badge.className = 'blend-badge active';
+    progress.className = 'blend-progress active';
+    timeEl.className = 'blend-time mono active';
+
+    if (data.transition_progress !== undefined) {
+      progressFill.style.width = (data.transition_progress * 100) + '%';
+    } else {
+      // Animate based on crossfader position
+      const cf = data.crossfader ?? 0.5;
+      progressFill.style.width = (cf * 100) + '%';
+    }
+
+    if (data.transition_elapsed !== undefined && data.transition_duration !== undefined) {
+      timeEl.textContent = Math.round(data.transition_elapsed) + 's / ' + Math.round(data.transition_duration) + 's';
+    } else {
+      timeEl.textContent = '';
+    }
+  } else {
+    badge.className = 'blend-badge';
+    progress.className = 'blend-progress';
+    timeEl.className = 'blend-time mono';
+  }
+}
+
+function highlightPlaylistTracks(data) {
+  const items = document.querySelectorAll('.track-item');
+  const d1Track = data.deck1?.track || '';
+  const d2Track = data.deck2?.track || '';
+
+  items.forEach(item => {
+    const fn = item.dataset.filename;
+    item.classList.remove('on-deck1', 'on-deck2');
+    if (fn === d1Track) item.classList.add('on-deck1');
+    if (fn === d2Track) item.classList.add('on-deck2');
+  });
+}
+
+// ── Track List ────────────────────────────────────────
 async function loadTrackList() {
   const data = await api('GET', '/api/tracks');
-  if (!data) return;
+  if (!data?.tracks) return;
+  trackListData = data.tracks;
+
+  document.getElementById('trackCount').textContent = data.tracks.length + ' tracks';
 
   const list = document.getElementById('trackList');
-  list.innerHTML = data.tracks.map(t => `
-    <div class="track-item">
-      <span>${t.name}</span>
-      <span class="size">${t.size_mb} MB</span>
-      <span class="load-btns">
-        <button class="load-btn" onclick="loadTrack(1, '${t.filename.replace(/'/g, "\\'")}')">D1</button>
-        <button class="load-btn" onclick="loadTrack(2, '${t.filename.replace(/'/g, "\\'")}')">D2</button>
+  list.innerHTML = data.tracks.map(t => {
+    const safeName = t.filename.replace(/'/g, "\\'");
+    return `<div class="track-item" data-filename="${t.filename}">
+      <span class="t-name">${t.name}</span>
+      <span class="t-size">${t.size_mb} MB</span>
+      <span class="t-actions">
+        <button class="load-btn d1" onclick="loadTrack(1, '${safeName}')">DECK 1</button>
+        <button class="load-btn d2" onclick="loadTrack(2, '${safeName}')">DECK 2</button>
       </span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-// Poll status every 500ms
+// ── Polling ───────────────────────────────────────────
 async function poll() {
   const data = await api('GET', '/api/status');
   updateUI(data);
