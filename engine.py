@@ -640,13 +640,31 @@ class DJEngine:
         if self._running:
             return "Engine already running"
 
-        self.stream = sd.OutputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
-            dtype='float32',
-            blocksize=BLOCK_SIZE,
-            callback=self._audio_callback,
-        )
+        # Find a working output device (prefer default, fallback to speakers)
+        device = None
+        try:
+            dev_info = sd.query_devices(kind='output')
+            if dev_info['max_output_channels'] < CHANNELS:
+                # Default device can't do stereo — find one that can
+                for i, d in enumerate(sd.query_devices()):
+                    if d['max_output_channels'] >= CHANNELS:
+                        device = i
+                        print(f"[DJ Treta] Default output has {dev_info['max_output_channels']}ch, using [{i}] {d['name']} instead")
+                        break
+        except Exception:
+            pass
+
+        kwargs = {
+            'samplerate': SAMPLE_RATE,
+            'channels': CHANNELS,
+            'dtype': 'float32',
+            'blocksize': BLOCK_SIZE,
+            'callback': self._audio_callback,
+        }
+        if device is not None:
+            kwargs['device'] = device
+
+        self.stream = sd.OutputStream(**kwargs)
         self.stream.start()
         self._running = True
 
