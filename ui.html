@@ -8,25 +8,43 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
-    --bg: #0a0a0e;
-    --surface: #111116;
-    --surface2: #18181f;
-    --border: #1e1e28;
-    --text: #c8c8d0;
-    --text-dim: #555560;
+    --bg-dark: #08080c;
+    --bg: #0c0c12;
+    --bg-grad: linear-gradient(145deg, #0e0e16 0%, #08080e 50%, #0a0a14 100%);
+    --surface: rgba(16, 16, 24, 0.9);
+    --surface2: rgba(22, 22, 32, 0.8);
+    --surface-hover: rgba(28, 28, 40, 0.9);
+    --border: rgba(255, 255, 255, 0.04);
+    --border-light: rgba(255, 255, 255, 0.07);
+    --text: #d0d0d8;
+    --text-bright: #eeeef2;
+    --text-dim: #555568;
+    --text-muted: #3a3a4a;
+
     --cyan: #00d4ff;
-    --cyan-dim: rgba(0, 212, 255, 0.15);
-    --cyan-glow: rgba(0, 212, 255, 0.3);
+    --cyan-mid: #00a8d6;
+    --cyan-dark: #0080a0;
+    --cyan-dim: rgba(0, 212, 255, 0.08);
+    --cyan-glow: rgba(0, 212, 255, 0.25);
+    --cyan-glow-strong: rgba(0, 212, 255, 0.5);
+
     --magenta: #ff2d7b;
-    --magenta-dim: rgba(255, 45, 123, 0.15);
-    --magenta-glow: rgba(255, 45, 123, 0.3);
+    --magenta-mid: #d42565;
+    --magenta-dark: #a01e50;
+    --magenta-dim: rgba(255, 45, 123, 0.08);
+    --magenta-glow: rgba(255, 45, 123, 0.25);
+    --magenta-glow-strong: rgba(255, 45, 123, 0.5);
+
     --green: #00e676;
+    --green-dim: rgba(0, 230, 118, 0.12);
+    --purple: #7b2ff7;
+    --purple-glow: rgba(123, 47, 247, 0.3);
   }
 
   body {
-    background: var(--bg);
+    background: var(--bg-grad);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
     height: 100vh;
     overflow: hidden;
     display: flex;
@@ -42,93 +60,132 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 20px;
-    background: var(--surface);
+    padding: 0 24px;
+    background: linear-gradient(180deg, rgba(18,18,28,0.95) 0%, rgba(12,12,18,0.95) 100%);
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
-    height: 42px;
+    height: 48px;
+    backdrop-filter: blur(20px);
   }
 
   .logo {
-    font-size: 15px;
-    font-weight: 700;
-    letter-spacing: 3px;
-    background: linear-gradient(135deg, var(--cyan), var(--magenta));
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 5px;
+    background: linear-gradient(135deg, var(--cyan), #6366f1, var(--magenta));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-shadow: none;
+    position: relative;
+  }
+  .logo::after {
+    content: 'DJ TRETA';
+    position: absolute;
+    left: 0;
+    top: 0;
+    background: linear-gradient(135deg, var(--cyan), #6366f1, var(--magenta));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: blur(8px);
+    opacity: 0.4;
+    pointer-events: none;
   }
 
   .master-section {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 20px;
   }
 
   .live-badge {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: 9px;
+    font-weight: 800;
     letter-spacing: 2px;
-    padding: 3px 10px;
-    border-radius: 3px;
-    background: #1a1a1a;
-    color: #555;
-    border: 1px solid #2a2a2a;
+    padding: 4px 12px;
+    border-radius: 4px;
+    background: rgba(30,30,40,0.6);
+    color: var(--text-muted);
+    border: 1px solid rgba(255,255,255,0.05);
+    transition: all 0.4s ease;
   }
   .live-badge.on {
-    background: rgba(0, 230, 118, 0.15);
+    background: var(--green-dim);
     color: var(--green);
-    border-color: rgba(0, 230, 118, 0.3);
-    animation: pulse-live 2s ease-in-out infinite;
+    border-color: rgba(0, 230, 118, 0.25);
+    box-shadow: 0 0 12px rgba(0, 230, 118, 0.15), inset 0 0 12px rgba(0, 230, 118, 0.05);
+    animation: pulse-live 2.5s ease-in-out infinite;
   }
   @keyframes pulse-live {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    0%, 100% { opacity: 1; box-shadow: 0 0 12px rgba(0, 230, 118, 0.15); }
+    50% { opacity: 0.7; box-shadow: 0 0 20px rgba(0, 230, 118, 0.25); }
   }
 
   .master-vol {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
   .master-vol label {
     font-size: 9px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     color: var(--text-dim);
   }
   .master-slider {
-    width: 80px;
+    width: 90px;
   }
 
   /* ── Decks Area ─────────────────────────────────────── */
   .decks-area {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 1fr 100px 1fr;
     flex: 1;
     min-height: 0;
-    padding: 12px;
+    padding: 12px 16px;
     gap: 12px;
   }
 
   /* ── Deck ───────────────────────────────────────────── */
   .deck {
-    background: var(--surface);
-    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(16,16,26,0.9) 0%, rgba(12,12,20,0.95) 100%);
+    border-radius: 12px;
     border: 1px solid var(--border);
-    padding: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    transition: border-color 0.3s, box-shadow 0.3s;
+    gap: 12px;
+    transition: border-color 0.5s ease, box-shadow 0.5s ease;
+    position: relative;
+    overflow: hidden;
   }
+  .deck::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .deck[data-deck="1"]::before {
+    background: linear-gradient(90deg, transparent, var(--cyan-glow), transparent);
+  }
+  .deck[data-deck="2"]::before {
+    background: linear-gradient(90deg, transparent, var(--magenta-glow), transparent);
+  }
+
   .deck[data-deck="1"].active {
-    border-color: rgba(0, 212, 255, 0.3);
-    box-shadow: 0 0 20px rgba(0, 212, 255, 0.08);
+    border-color: rgba(0, 212, 255, 0.15);
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.06), inset 0 0 30px rgba(0, 212, 255, 0.02);
   }
+  .deck[data-deck="1"].active::before { opacity: 1; }
   .deck[data-deck="2"].active {
-    border-color: rgba(255, 45, 123, 0.3);
-    box-shadow: 0 0 20px rgba(255, 45, 123, 0.08);
+    border-color: rgba(255, 45, 123, 0.15);
+    box-shadow: 0 0 30px rgba(255, 45, 123, 0.06), inset 0 0 30px rgba(255, 45, 123, 0.02);
   }
+  .deck[data-deck="2"].active::before { opacity: 1; }
 
   .deck-top {
     display: flex;
@@ -137,35 +194,61 @@
   }
   .deck-label {
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 3px;
+    font-weight: 800;
+    letter-spacing: 4px;
     text-transform: uppercase;
+    opacity: 0.6;
+    transition: opacity 0.3s;
   }
+  .deck.active .deck-label { opacity: 1; }
   .deck[data-deck="1"] .deck-label { color: var(--cyan); }
   .deck[data-deck="2"] .deck-label { color: var(--magenta); }
 
   .deck-bpm {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
     color: var(--text-dim);
+    transition: all 0.3s;
   }
-  .deck-bpm span { color: var(--text); }
+  .deck-bpm span {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .deck[data-deck="1"].active .deck-bpm {
+    background: var(--cyan-dim);
+    border-color: rgba(0, 212, 255, 0.15);
+    color: rgba(0, 212, 255, 0.6);
+  }
+  .deck[data-deck="1"].active .deck-bpm span { color: var(--cyan); }
+  .deck[data-deck="2"].active .deck-bpm {
+    background: var(--magenta-dim);
+    border-color: rgba(255, 45, 123, 0.15);
+    color: rgba(255, 45, 123, 0.6);
+  }
+  .deck[data-deck="2"].active .deck-bpm span { color: var(--magenta); }
 
   .track-name {
-    font-size: 13px;
-    color: #666;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
-    min-height: 20px;
+    min-height: 24px;
     position: relative;
+    transition: color 0.3s;
+    letter-spacing: 0.3px;
   }
-  .track-name.playing { color: #fff; }
+  .track-name.playing { color: var(--text-bright); }
   .track-name-inner {
     display: inline-block;
     white-space: nowrap;
   }
   .track-name.scrolling .track-name-inner {
-    animation: scroll-text 12s linear infinite;
+    animation: scroll-text 14s linear infinite;
   }
   @keyframes scroll-text {
     0% { transform: translateX(0); }
@@ -176,34 +259,38 @@
   .time-display {
     display: flex;
     align-items: baseline;
-    gap: 12px;
+    gap: 14px;
   }
   .time-current {
-    font-size: 36px;
-    font-weight: 300;
+    font-size: 40px;
+    font-weight: 200;
     font-variant-numeric: tabular-nums;
     line-height: 1;
+    letter-spacing: -1px;
+    transition: color 0.3s;
   }
   .deck[data-deck="1"] .time-current { color: var(--cyan); }
   .deck[data-deck="2"] .time-current { color: var(--magenta); }
 
   .time-remaining {
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 400;
     color: var(--text-dim);
     font-variant-numeric: tabular-nums;
+    opacity: 0.7;
   }
 
-  /* Waveform visualization */
-  .waveform {
-    height: 48px;
-    background: var(--bg);
-    border-radius: 4px;
+  /* Waveform */
+  .waveform-container {
     position: relative;
+    height: 72px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
+    border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
+    border: 1px solid var(--border);
   }
-  .waveform canvas {
+  .waveform-container canvas {
     width: 100%;
     height: 100%;
     display: block;
@@ -214,30 +301,67 @@
     bottom: 0;
     width: 2px;
     background: #fff;
-    box-shadow: 0 0 6px rgba(255,255,255,0.5);
-    transition: left 0.4s linear;
+    box-shadow: 0 0 8px rgba(255,255,255,0.6), 0 0 16px rgba(255,255,255,0.2);
+    transition: left 0.35s linear;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .waveform-playhead::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255,255,255,0.8);
+  }
+  .waveform-playhead::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255,255,255,0.8);
+  }
+  /* Played overlay */
+  .waveform-played {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.35);
+    pointer-events: none;
     z-index: 2;
+    transition: width 0.35s linear;
   }
 
   /* Progress bar */
   .progress-wrap {
-    height: 4px;
-    background: #0d0d12;
-    border-radius: 2px;
+    height: 3px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 3px;
     overflow: hidden;
     cursor: pointer;
+    margin-top: -4px;
   }
   .progress-fill {
     height: 100%;
-    border-radius: 2px;
-    transition: width 0.4s linear;
+    border-radius: 3px;
+    transition: width 0.35s linear;
     width: 0%;
   }
   .deck[data-deck="1"] .progress-fill {
-    background: linear-gradient(90deg, var(--cyan), rgba(0, 212, 255, 0.4));
+    background: linear-gradient(90deg, var(--cyan-dark), var(--cyan));
+    box-shadow: 0 0 8px var(--cyan-glow);
   }
   .deck[data-deck="2"] .progress-fill {
-    background: linear-gradient(90deg, var(--magenta), rgba(255, 45, 123, 0.4));
+    background: linear-gradient(90deg, var(--magenta-dark), var(--magenta));
+    box-shadow: 0 0 8px var(--magenta-glow);
   }
 
   /* Deck controls */
@@ -245,37 +369,67 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 12px;
     margin-top: auto;
+    padding-top: 4px;
   }
 
   .btn-play {
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    border: 2px solid #333;
-    background: var(--surface2);
-    color: #888;
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: var(--text-dim);
     font-size: 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: all 0.25s ease;
+    position: relative;
   }
-  .btn-play:hover { border-color: #555; color: #ccc; }
+  .btn-play::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .btn-play:hover {
+    border-color: rgba(255,255,255,0.2);
+    color: var(--text);
+    background: rgba(255,255,255,0.05);
+    transform: scale(1.05);
+  }
 
   .deck[data-deck="1"] .btn-play.active {
     border-color: var(--cyan);
     color: var(--cyan);
     background: var(--cyan-dim);
-    box-shadow: 0 0 16px rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.15), inset 0 0 15px rgba(0, 212, 255, 0.05);
+  }
+  .deck[data-deck="1"] .btn-play.active::before {
+    background: radial-gradient(circle, var(--cyan-glow) 0%, transparent 70%);
+    opacity: 0.3;
+    animation: btn-pulse 2s ease-in-out infinite;
   }
   .deck[data-deck="2"] .btn-play.active {
     border-color: var(--magenta);
     color: var(--magenta);
     background: var(--magenta-dim);
-    box-shadow: 0 0 16px rgba(255, 45, 123, 0.2);
+    box-shadow: 0 0 20px rgba(255, 45, 123, 0.15), inset 0 0 15px rgba(255, 45, 123, 0.05);
+  }
+  .deck[data-deck="2"] .btn-play.active::before {
+    background: radial-gradient(circle, var(--magenta-glow) 0%, transparent 70%);
+    opacity: 0.3;
+    animation: btn-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes btn-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.3); opacity: 0.1; }
   }
 
   /* ── Mixer (center) ────────────────────────────────── */
@@ -284,149 +438,191 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 16px 12px;
-    width: 80px;
+    gap: 20px;
+    padding: 20px 8px;
   }
 
   .crossfader-section {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
   }
   .cf-label {
-    font-size: 9px;
-    letter-spacing: 2px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 3px;
     text-transform: uppercase;
-    color: var(--text-dim);
+    color: var(--text-muted);
   }
+
   .cf-indicator {
     display: flex;
     gap: 2px;
     width: 100%;
+    height: 4px;
   }
   .cf-bar {
-    height: 3px;
-    border-radius: 1px;
+    height: 100%;
+    border-radius: 2px;
     flex: 1;
-    transition: opacity 0.2s;
+    transition: opacity 0.3s ease, box-shadow 0.3s ease;
   }
-  .cf-bar.left { background: var(--cyan); }
-  .cf-bar.right { background: var(--magenta); }
+  .cf-bar.left {
+    background: linear-gradient(90deg, var(--cyan), var(--cyan-mid));
+    box-shadow: 0 0 6px var(--cyan-glow);
+  }
+  .cf-bar.right {
+    background: linear-gradient(90deg, var(--magenta-mid), var(--magenta));
+    box-shadow: 0 0 6px var(--magenta-glow);
+  }
 
   .crossfader-wrap {
     width: 100%;
     position: relative;
+    padding: 4px 0;
   }
 
   /* Transition indicator */
   .transition-indicator {
     text-align: center;
-    min-height: 40px;
+    min-height: 50px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
   }
-  .blend-badge {
+  .mix-badge {
     font-size: 8px;
-    font-weight: 700;
+    font-weight: 800;
     letter-spacing: 2px;
-    padding: 2px 6px;
-    border-radius: 2px;
-    background: rgba(123, 47, 247, 0.2);
-    color: #b388ff;
-    border: 1px solid rgba(123, 47, 247, 0.3);
-    display: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: rgba(123, 47, 247, 0.12);
+    color: var(--purple);
+    border: 1px solid rgba(123, 47, 247, 0.2);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 0.4s ease;
   }
-  .blend-badge.active { display: block; animation: pulse-blend 1s ease-in-out infinite; }
-  @keyframes pulse-blend {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  .mix-badge.active {
+    opacity: 1;
+    transform: scale(1);
+    animation: mix-pulse 1.5s ease-in-out infinite;
+    box-shadow: 0 0 16px rgba(123, 47, 247, 0.2);
   }
-  .blend-time {
-    font-size: 9px;
-    color: #666;
-    display: none;
+  @keyframes mix-pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 16px rgba(123, 47, 247, 0.2); }
+    50% { opacity: 0.6; box-shadow: 0 0 24px rgba(123, 47, 247, 0.35); }
   }
-  .blend-time.active { display: block; }
 
   .blend-progress {
     width: 100%;
     height: 3px;
-    background: #1a1a2e;
-    border-radius: 2px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 3px;
     overflow: hidden;
-    display: none;
+    opacity: 0;
+    transition: opacity 0.4s;
   }
-  .blend-progress.active { display: block; }
+  .blend-progress.active { opacity: 1; }
   .blend-progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--cyan), var(--magenta));
+    background: linear-gradient(90deg, var(--cyan), var(--purple), var(--magenta));
     transition: width 0.5s linear;
     width: 0%;
+    border-radius: 3px;
+    box-shadow: 0 0 6px var(--purple-glow);
   }
 
-  /* ── Sliders (shared) ──────────────────────────────── */
+  .blend-time {
+    font-size: 9px;
+    color: var(--text-muted);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .blend-time.active { opacity: 1; }
+
+  /* ── Sliders ──────────────────────────────────────────── */
   input[type="range"] {
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
     height: 4px;
-    background: #1a1a22;
-    border-radius: 2px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
     outline: none;
     cursor: pointer;
+    transition: background 0.2s;
+  }
+  input[type="range"]:hover {
+    background: rgba(255,255,255,0.1);
   }
   input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
-    background: #888;
+    background: linear-gradient(135deg, #aaa, #666);
     cursor: pointer;
-    transition: background 0.15s;
+    transition: all 0.2s;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
   }
-  input[type="range"]:hover::-webkit-slider-thumb { background: #bbb; }
+  input[type="range"]:hover::-webkit-slider-thumb {
+    background: linear-gradient(135deg, #ddd, #999);
+    transform: scale(1.15);
+    box-shadow: 0 0 8px rgba(255,255,255,0.2);
+  }
 
+  .crossfader-wrap input[type="range"] {
+    height: 6px;
+    background: linear-gradient(90deg, var(--cyan-dim), rgba(255,255,255,0.04), var(--magenta-dim));
+    border-radius: 6px;
+  }
   .crossfader-wrap input[type="range"]::-webkit-slider-thumb {
-    width: 16px;
-    height: 16px;
-    border-radius: 3px;
-    background: #ccc;
+    width: 22px;
+    height: 18px;
+    border-radius: 4px;
+    background: linear-gradient(180deg, #ddd 0%, #888 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  }
+  .crossfader-wrap input[type="range"]:hover::-webkit-slider-thumb {
+    background: linear-gradient(180deg, #fff 0%, #aaa 100%);
+    box-shadow: 0 2px 12px rgba(0,0,0,0.6), 0 0 12px rgba(255,255,255,0.15);
   }
 
   /* ── Playlist ───────────────────────────────────────── */
   .playlist-area {
-    background: var(--surface);
+    background: linear-gradient(180deg, rgba(14,14,22,0.95) 0%, rgba(10,10,16,0.98) 100%);
     border-top: 1px solid var(--border);
     flex-shrink: 0;
     height: 200px;
     display: flex;
     flex-direction: column;
+    backdrop-filter: blur(10px);
   }
 
   .playlist-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 20px;
+    padding: 10px 24px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
   }
   .playlist-header h3 {
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 9px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 3px;
     color: var(--text-dim);
   }
   .track-count {
     font-size: 10px;
-    color: #444;
+    color: var(--text-muted);
+    font-weight: 500;
   }
 
   .playlist-scroll {
@@ -438,58 +634,96 @@
   .track-item {
     display: flex;
     align-items: center;
-    padding: 5px 12px;
-    border-radius: 4px;
+    padding: 7px 14px;
+    border-radius: 6px;
     font-size: 12px;
-    color: #777;
+    color: var(--text-dim);
     cursor: default;
-    transition: background 0.1s;
+    transition: all 0.2s ease;
     gap: 12px;
+    position: relative;
+    border-left: 2px solid transparent;
   }
-  .track-item:hover { background: var(--surface2); color: #bbb; }
-  .track-item.on-deck1 { color: var(--cyan); }
-  .track-item.on-deck2 { color: var(--magenta); }
+  .track-item:hover {
+    background: var(--surface-hover);
+    color: var(--text);
+  }
+  .track-item.on-deck1 {
+    color: var(--cyan);
+    border-left-color: var(--cyan);
+    background: var(--cyan-dim);
+  }
+  .track-item.on-deck2 {
+    color: var(--magenta);
+    border-left-color: var(--magenta);
+    background: var(--magenta-dim);
+  }
 
-  .track-item .t-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .track-item .t-size { font-size: 10px; color: #333; min-width: 50px; text-align: right; }
-  .track-item .t-actions { display: none; gap: 4px; }
-  .track-item:hover .t-actions { display: flex; }
-  .track-item:hover .t-size { display: none; }
+  .track-item .t-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+  .track-item .t-size {
+    font-size: 10px;
+    color: var(--text-muted);
+    min-width: 50px;
+    text-align: right;
+    transition: opacity 0.2s;
+  }
+  .track-item .t-actions {
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    transform: translateX(4px);
+    transition: all 0.2s ease;
+    position: absolute;
+    right: 14px;
+  }
+  .track-item:hover .t-actions {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .track-item:hover .t-size { opacity: 0; }
 
   .load-btn {
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 1px;
-    padding: 2px 8px;
-    border-radius: 3px;
+    padding: 3px 10px;
+    border-radius: 4px;
     border: 1px solid;
     background: transparent;
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.15s;
+    transition: all 0.2s ease;
   }
   .load-btn.d1 {
     color: var(--cyan);
-    border-color: rgba(0, 212, 255, 0.3);
+    border-color: rgba(0, 212, 255, 0.2);
   }
   .load-btn.d1:hover {
-    background: var(--cyan-dim);
+    background: rgba(0, 212, 255, 0.12);
     border-color: var(--cyan);
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.15);
   }
   .load-btn.d2 {
     color: var(--magenta);
-    border-color: rgba(255, 45, 123, 0.3);
+    border-color: rgba(255, 45, 123, 0.2);
   }
   .load-btn.d2:hover {
-    background: var(--magenta-dim);
+    background: rgba(255, 45, 123, 0.12);
     border-color: var(--magenta);
+    box-shadow: 0 0 10px rgba(255, 45, 123, 0.15);
   }
 
   /* ── Scrollbar ──────────────────────────────────────── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #222; border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: #333; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
 
   /* ── Responsive ─────────────────────────────────────── */
   @media (max-width: 768px) {
@@ -504,6 +738,7 @@
     }
     .crossfader-section { flex: 1; }
     .time-current { font-size: 28px; }
+    .waveform-container { height: 56px; }
   }
 </style>
 </head>
@@ -528,18 +763,19 @@
   <!-- Deck 1 -->
   <div class="deck" data-deck="1" id="deck1">
     <div class="deck-top">
-      <span class="deck-label">DECK 1</span>
+      <span class="deck-label">DECK A</span>
       <span class="deck-bpm mono" id="d1Bpm"></span>
     </div>
     <div class="track-name" id="d1Track">
-      <span class="track-name-inner">(empty)</span>
+      <span class="track-name-inner">No Track Loaded</span>
     </div>
     <div class="time-display mono">
       <span class="time-current" id="d1Time">0:00</span>
       <span class="time-remaining" id="d1Remain">-0:00</span>
     </div>
-    <div class="waveform" id="d1Waveform" onclick="seekDeck(1, event)">
+    <div class="waveform-container" id="d1Waveform" onclick="seekDeck(1, event)">
       <canvas id="d1Canvas"></canvas>
+      <div class="waveform-played" id="d1Played"></div>
       <div class="waveform-playhead" id="d1Playhead"></div>
     </div>
     <div class="progress-wrap" onclick="seekDeck(1, event)">
@@ -547,8 +783,8 @@
     </div>
     <div class="deck-controls">
       <button class="btn-play" id="d1PlayBtn" onclick="togglePlay(1)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="d1PlayIcon">
-          <polygon points="6,4 20,12 6,20"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="d1PlayIcon">
+          <polygon points="7,4 20,12 7,20"/>
         </svg>
       </button>
     </div>
@@ -568,7 +804,7 @@
       </div>
     </div>
     <div class="transition-indicator">
-      <div class="blend-badge" id="blendBadge">BLENDING</div>
+      <div class="mix-badge" id="mixBadge">MIXING</div>
       <div class="blend-progress" id="blendProgress">
         <div class="blend-progress-fill" id="blendProgressFill"></div>
       </div>
@@ -579,18 +815,19 @@
   <!-- Deck 2 -->
   <div class="deck" data-deck="2" id="deck2">
     <div class="deck-top">
-      <span class="deck-label">DECK 2</span>
+      <span class="deck-label">DECK B</span>
       <span class="deck-bpm mono" id="d2Bpm"></span>
     </div>
     <div class="track-name" id="d2Track">
-      <span class="track-name-inner">(empty)</span>
+      <span class="track-name-inner">No Track Loaded</span>
     </div>
     <div class="time-display mono">
       <span class="time-current" id="d2Time">0:00</span>
       <span class="time-remaining" id="d2Remain">-0:00</span>
     </div>
-    <div class="waveform" id="d2Waveform" onclick="seekDeck(2, event)">
+    <div class="waveform-container" id="d2Waveform" onclick="seekDeck(2, event)">
       <canvas id="d2Canvas"></canvas>
+      <div class="waveform-played" id="d2Played"></div>
       <div class="waveform-playhead" id="d2Playhead"></div>
     </div>
     <div class="progress-wrap" onclick="seekDeck(2, event)">
@@ -598,8 +835,8 @@
     </div>
     <div class="deck-controls">
       <button class="btn-play" id="d2PlayBtn" onclick="togglePlay(2)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" id="d2PlayIcon">
-          <polygon points="6,4 20,12 6,20"/>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" id="d2PlayIcon">
+          <polygon points="7,4 20,12 7,20"/>
         </svg>
       </button>
     </div>
@@ -621,10 +858,14 @@ const API = '';
 
 // ── State ──────────────────────────────────────────────
 let lastStatus = null;
-let transitionStart = null;
-let transitionDuration = null;
-let waveformHistory = { 1: new Float32Array(80).fill(0), 2: new Float32Array(80).fill(0) };
-let trackListData = [];
+const WAVEFORM_BARS = 128;
+let waveformBuffers = {
+  1: new Float32Array(WAVEFORM_BARS).fill(0),
+  2: new Float32Array(WAVEFORM_BARS).fill(0)
+};
+let waveformTargets = { 1: 0, 2: 0 };
+let waveformPhase = { 1: 0, 2: 0 };
+let animFrameId = null;
 
 // ── API ────────────────────────────────────────────────
 async function api(method, path, body) {
@@ -651,7 +892,7 @@ async function setCrossfade(pos) { await api('POST', '/api/crossfade', { positio
 async function setMaster(level) { await api('POST', '/api/master', { level }); }
 
 async function seekDeck(deck, event) {
-  const el = event.target.closest('.waveform, .progress-wrap');
+  const el = event.target.closest('.waveform-container, .progress-wrap');
   if (!el) return;
   const rect = el.getBoundingClientRect();
   const pct = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
@@ -669,8 +910,40 @@ function parseTime(str) {
   return parseInt(parts[0]) * 60 + parseFloat(parts[1] || 0);
 }
 
-// ── Waveform Drawing ──────────────────────────────────
-function drawWaveform(deckNum, energy, playing) {
+// ── Waveform Engine (60fps) ───────────────────────────
+function generateWaveformEnergy(deckNum, energy, playing) {
+  const buf = waveformBuffers[deckNum];
+  const smoothing = 0.92;
+
+  // Shift buffer left by 1
+  for (let i = 0; i < buf.length - 1; i++) {
+    buf[i] = buf[i + 1];
+  }
+
+  let val = 0;
+  if (playing) {
+    // Create organic-looking waveform using layered sine waves
+    waveformPhase[deckNum] += 0.08 + (energy || 0) * 0.04;
+    const phase = waveformPhase[deckNum];
+    const baseEnergy = (typeof energy === 'number' && energy > 0) ? energy : 0.4;
+
+    // Layer multiple frequencies for organic feel
+    val = baseEnergy * (
+      0.5 +
+      0.25 * Math.sin(phase * 2.1) +
+      0.15 * Math.sin(phase * 5.3 + 1.2) +
+      0.10 * Math.sin(phase * 11.7 + 2.4) +
+      0.08 * Math.sin(phase * 23.1 + 0.7) +
+      0.05 * Math.random()
+    );
+    val = Math.max(0.05, Math.min(1, val));
+  }
+
+  // Smooth transition
+  buf[buf.length - 1] = buf[buf.length - 2] * 0.3 + val * 0.7;
+}
+
+function drawWaveform(deckNum) {
   const canvasId = deckNum === 1 ? 'd1Canvas' : 'd2Canvas';
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
@@ -678,41 +951,115 @@ function drawWaveform(deckNum, energy, playing) {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
-  ctx.scale(dpr, dpr);
+
+  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+  }
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const W = rect.width;
   const H = rect.height;
-
   ctx.clearRect(0, 0, W, H);
 
-  // Shift history left and add new value
-  const hist = waveformHistory[deckNum];
-  for (let i = 0; i < hist.length - 1; i++) hist[i] = hist[i + 1];
+  const buf = waveformBuffers[deckNum];
+  const barW = W / buf.length;
+  const gap = Math.max(0.5, barW * 0.15);
+  const effectiveBarW = barW - gap;
 
-  // Use energy if available, otherwise generate from playing state
-  let val = 0;
-  if (typeof energy === 'number' && energy > 0) {
-    val = energy;
-  } else if (playing) {
-    val = 0.3 + Math.random() * 0.5;
+  // Color stops
+  const c1 = deckNum === 1 ? [0, 168, 214] : [214, 37, 101];  // darker
+  const c2 = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];  // brighter
+
+  // Get playhead position for played/upcoming distinction
+  const d = deckNum === 1 ? lastStatus?.deck1 : lastStatus?.deck2;
+  const total = d ? parseTime(d.duration) : 0;
+  const pos = d ? parseTime(d.position) : 0;
+  const playPct = total > 0 ? pos / total : 0;
+  const playheadBar = Math.floor(playPct * buf.length);
+
+  // Draw center line
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  ctx.moveTo(0, H / 2);
+  ctx.lineTo(W, H / 2);
+  ctx.stroke();
+
+  for (let i = 0; i < buf.length; i++) {
+    const v = buf[i];
+    if (v <= 0.01) continue;
+
+    const h = v * H * 0.8;
+    const x = i * barW + gap / 2;
+    const yTop = (H - h) / 2;
+
+    // Brightness based on position relative to playhead
+    const isPast = i < playheadBar;
+    const alphaMult = isPast ? 0.3 : (0.6 + v * 0.4);
+
+    // Interpolate color based on value
+    const t = v;
+    const r = c1[0] + (c2[0] - c1[0]) * t;
+    const g = c1[1] + (c2[1] - c1[1]) * t;
+    const b = c1[2] + (c2[2] - c1[2]) * t;
+
+    // Create gradient for each bar (top to center to bottom)
+    const grad = ctx.createLinearGradient(0, yTop, 0, yTop + h);
+    grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alphaMult * 0.5})`);
+    grad.addColorStop(0.3, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
+    grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
+    grad.addColorStop(0.7, `rgba(${r}, ${g}, ${b}, ${alphaMult})`);
+    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${alphaMult * 0.5})`);
+
+    ctx.fillStyle = grad;
+
+    // Rounded bars
+    const radius = Math.min(effectiveBarW / 2, 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, yTop);
+    ctx.lineTo(x + effectiveBarW - radius, yTop);
+    ctx.quadraticCurveTo(x + effectiveBarW, yTop, x + effectiveBarW, yTop + radius);
+    ctx.lineTo(x + effectiveBarW, yTop + h - radius);
+    ctx.quadraticCurveTo(x + effectiveBarW, yTop + h, x + effectiveBarW - radius, yTop + h);
+    ctx.lineTo(x + radius, yTop + h);
+    ctx.quadraticCurveTo(x, yTop + h, x, yTop + h - radius);
+    ctx.lineTo(x, yTop + radius);
+    ctx.quadraticCurveTo(x, yTop, x + radius, yTop);
+    ctx.fill();
+
+    // Glow on high energy upcoming bars
+    if (!isPast && v > 0.6) {
+      ctx.shadowColor = `rgba(${c2[0]}, ${c2[1]}, ${c2[2]}, ${(v - 0.6) * 0.5})`;
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
   }
-  hist[hist.length - 1] = val;
 
-  const color = deckNum === 1 ? [0, 212, 255] : [255, 45, 123];
-  const barW = W / hist.length;
+  // Subtle reflection
+  ctx.globalAlpha = 0.04;
+  ctx.fillStyle = deckNum === 1 ? 'rgba(0, 212, 255, 1)' : 'rgba(255, 45, 123, 1)';
+  ctx.fillRect(0, H * 0.48, W, H * 0.04);
+  ctx.globalAlpha = 1;
+}
 
-  for (let i = 0; i < hist.length; i++) {
-    const v = hist[i];
-    if (v <= 0) continue;
-    const h = v * H * 0.85;
-    const x = i * barW;
-    const y = (H - h) / 2;
-    const alpha = 0.3 + v * 0.6;
-
-    ctx.fillStyle = `rgba(${color[0]}, ${color[1]}, ${color[2]}, ${alpha})`;
-    ctx.fillRect(x + 1, y, barW - 2, h);
+// ── Animation Loop ────────────────────────────────────
+function animate() {
+  // Generate new waveform data
+  if (lastStatus) {
+    const d1 = lastStatus.deck1;
+    const d2 = lastStatus.deck2;
+    generateWaveformEnergy(1, d1?.energy, d1?.playing);
+    generateWaveformEnergy(2, d2?.energy, d2?.playing);
+  } else {
+    generateWaveformEnergy(1, 0, false);
+    generateWaveformEnergy(2, 0, false);
   }
+
+  drawWaveform(1);
+  drawWaveform(2);
+  animFrameId = requestAnimationFrame(animate);
 }
 
 // ── Update UI ─────────────────────────────────────────
@@ -724,7 +1071,7 @@ function updateUI(data) {
   const live = document.getElementById('liveBadge');
   live.className = 'live-badge' + (data.engine !== 'stopped' ? ' on' : '');
 
-  // Master volume (don't fight the user)
+  // Master volume
   if (!document.getElementById('masterVol').matches(':active')) {
     document.getElementById('masterVol').value = (data.master_volume || 0.8) * 100;
   }
@@ -738,13 +1085,13 @@ function updateUI(data) {
     document.getElementById('crossfader').value = (data.crossfader ?? 0.5) * 100;
   }
   const cf = data.crossfader ?? 0.5;
-  document.getElementById('cfLeft').style.opacity = 1 - cf * 0.7;
+  document.getElementById('cfLeft').style.opacity = 0.3 + (1 - cf) * 0.7;
   document.getElementById('cfRight').style.opacity = 0.3 + cf * 0.7;
 
   // Transition detection
   updateTransition(data);
 
-  // Highlight tracks in playlist
+  // Highlight tracks
   highlightPlaylistTracks(data);
 }
 
@@ -755,16 +1102,21 @@ function updateDeck(num, d) {
   // Track name
   const trackEl = document.getElementById(prefix + 'Track');
   const innerEl = trackEl.querySelector('.track-name-inner');
-  const name = (d.track || '').replace(/\.mp3$/i, '') || '(empty)';
-  innerEl.textContent = name;
+  const name = (d.track || '').replace(/\.mp3$/i, '').replace(/_/g, ' ') || 'No Track Loaded';
+  if (innerEl.textContent.replace(/\s{5}.*/, '') !== name) {
+    innerEl.textContent = name;
+  }
   trackEl.className = 'track-name' + (d.playing ? ' playing' : '');
 
-  // Check if text overflows and needs scrolling
+  // Scrolling
   if (innerEl.scrollWidth > trackEl.clientWidth && d.playing) {
-    innerEl.textContent = name + '     ' + name + '     ';
-    trackEl.classList.add('scrolling');
+    if (!trackEl.classList.contains('scrolling')) {
+      innerEl.textContent = name + '     ' + name + '     ';
+      trackEl.classList.add('scrolling');
+    }
   } else {
     trackEl.classList.remove('scrolling');
+    if (innerEl.textContent !== name) innerEl.textContent = name;
   }
 
   // BPM
@@ -785,44 +1137,40 @@ function updateDeck(num, d) {
   const pct = total > 0 ? (pos / total) * 100 : 0;
   document.getElementById(prefix + 'Progress').style.width = pct + '%';
   document.getElementById(prefix + 'Playhead').style.left = pct + '%';
+  document.getElementById(prefix + 'Played').style.width = pct + '%';
 
   // Play button
   const btn = document.getElementById(prefix + 'PlayBtn');
   btn.className = 'btn-play' + (d.playing ? ' active' : '');
   const icon = document.getElementById(prefix + 'PlayIcon');
   if (d.playing) {
-    icon.innerHTML = '<rect x="5" y="4" width="4" height="16"/><rect x="13" y="4" width="4" height="16"/>';
+    icon.innerHTML = '<rect x="5" y="4" width="4" height="16" rx="1"/><rect x="13" y="4" width="4" height="16" rx="1"/>';
   } else {
-    icon.innerHTML = '<polygon points="6,4 20,12 6,20"/>';
+    icon.innerHTML = '<polygon points="7,4 20,12 7,20"/>';
   }
 
   // Deck active state
   const deckEl = document.getElementById('deck' + num);
   deckEl.className = 'deck' + (d.playing ? ' active' : '');
-
-  // Waveform
-  drawWaveform(num, d.energy, d.playing);
 }
 
 function updateTransition(data) {
-  const badge = document.getElementById('blendBadge');
+  const badge = document.getElementById('mixBadge');
   const progress = document.getElementById('blendProgress');
   const progressFill = document.getElementById('blendProgressFill');
   const timeEl = document.getElementById('blendTime');
 
-  // Detect transition: both decks playing and crossfader moving
   const bothPlaying = data.deck1?.playing && data.deck2?.playing;
   const transitioning = data.transition_active || bothPlaying;
 
   if (transitioning) {
-    badge.className = 'blend-badge active';
+    badge.className = 'mix-badge active';
     progress.className = 'blend-progress active';
     timeEl.className = 'blend-time mono active';
 
     if (data.transition_progress !== undefined) {
       progressFill.style.width = (data.transition_progress * 100) + '%';
     } else {
-      // Animate based on crossfader position
       const cf = data.crossfader ?? 0.5;
       progressFill.style.width = (cf * 100) + '%';
     }
@@ -833,7 +1181,7 @@ function updateTransition(data) {
       timeEl.textContent = '';
     }
   } else {
-    badge.className = 'blend-badge';
+    badge.className = 'mix-badge';
     progress.className = 'blend-progress';
     timeEl.className = 'blend-time mono';
   }
@@ -856,19 +1204,19 @@ function highlightPlaylistTracks(data) {
 async function loadTrackList() {
   const data = await api('GET', '/api/tracks');
   if (!data?.tracks) return;
-  trackListData = data.tracks;
 
   document.getElementById('trackCount').textContent = data.tracks.length + ' tracks';
 
   const list = document.getElementById('trackList');
   list.innerHTML = data.tracks.map(t => {
     const safeName = t.filename.replace(/'/g, "\\'");
+    const displayName = t.name.replace(/_/g, ' ');
     return `<div class="track-item" data-filename="${t.filename}">
-      <span class="t-name">${t.name}</span>
+      <span class="t-name">${displayName}</span>
       <span class="t-size">${t.size_mb} MB</span>
       <span class="t-actions">
-        <button class="load-btn d1" onclick="loadTrack(1, '${safeName}')">DECK 1</button>
-        <button class="load-btn d2" onclick="loadTrack(2, '${safeName}')">DECK 2</button>
+        <button class="load-btn d1" onclick="loadTrack(1, '${safeName}')">DECK A</button>
+        <button class="load-btn d2" onclick="loadTrack(2, '${safeName}')">DECK B</button>
       </span>
     </div>`;
   }).join('');
@@ -880,9 +1228,11 @@ async function poll() {
   updateUI(data);
 }
 
+// ── Init ──────────────────────────────────────────────
 loadTrackList();
-setInterval(poll, 500);
+setInterval(poll, 400);
 poll();
+animate();
 </script>
 </body>
 </html>
