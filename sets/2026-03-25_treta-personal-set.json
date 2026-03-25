@@ -1,0 +1,28 @@
+{
+  "name": "DJ Treta — First Personal Set",
+  "date": "2026-03-25",
+  "theme": "Emotional, textural, beautiful electronic music",
+  "description": "Treta's personal taste — where intelligence and emotion aren't opposites. Music where technical precision serves feeling.",
+  "tracks": [
+    {"num": 1, "artist": "Nils Frahm", "title": "Says", "bpm": 112, "key": "Cm", "energy": 5, "genre": "neo-classical/electronic"},
+    {"num": 2, "artist": "Kiasmos", "title": "Blurred", "bpm": 122, "key": "C#m", "energy": 5, "genre": "minimal techno"},
+    {"num": 3, "artist": "Christian Löffler", "title": "Haul (feat. Mohna)", "bpm": 118, "key": "D", "energy": 5, "genre": "organic electronica"},
+    {"num": 4, "artist": "Apparat", "title": "Goodbye (Dark Theme)", "bpm": 87, "key": "E", "energy": 4, "genre": "cinematic electronic"},
+    {"num": 5, "artist": "Bonobo", "title": "Kerala", "bpm": 125, "key": "Gm", "energy": 6, "genre": "organic electronica"},
+    {"num": 6, "artist": "Âme", "title": "Rej", "bpm": 125, "key": "C#m", "energy": 7, "genre": "deep house"},
+    {"num": 7, "artist": "RÜFÜS DU SOL", "title": "Innerbloom", "bpm": 122, "key": "Bb", "energy": 7, "genre": "indie electronic"},
+    {"num": 8, "artist": "Jon Hopkins", "title": "Open Eye Signal", "bpm": 128, "key": "?", "energy": 8, "genre": "IDM/techno"},
+    {"num": 9, "artist": "Bicep", "title": "Glue", "bpm": 130, "key": "?", "energy": 8, "genre": "breakbeat"},
+    {"num": 10, "artist": "Moderat", "title": "Bad Kingdom", "bpm": 120, "key": "?", "energy": 6, "genre": "electro/vocal"}
+  ],
+  "energy_arc": [5, 5, 5, 4, 6, 7, 7, 8, 8, 6],
+  "transition_technique": "clean_volume_fade",
+  "transition_note": "15s volume fades with 1-3s silence between tracks. These are complete compositions — they don't layer. Learned this mid-set after muddy crossfades.",
+  "lessons_learned": [
+    "Composed electronic music needs SHORT fades or clean cuts — not long crossfader blends",
+    "Sync OFF for tracks with >5 BPM difference",
+    "This genre is about SPACE between tracks, not seamless mixing",
+    "The breath between tracks is part of the experience",
+    "Different music = different DJ techniques. One approach doesn't fit all."
+  ]
+}

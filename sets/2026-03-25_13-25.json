@@ -1,0 +1,58 @@
+{
+  "date": "2026-03-25",
+  "start_time": "2026-03-25T07:00:22.568Z",
+  "end_time": "2026-03-25T07:55:03.604Z",
+  "duration_minutes": 18,
+  "track_count": 3,
+  "tracks": [
+    {
+      "position": 1,
+      "track": "Erased Tapes - Nils Frahm - Says (Official Music Video).mp3",
+      "path": "/Users/manish.pratap/Music/DJTreta/deep/Erased Tapes - Nils Frahm - Says (Official Music Video).mp3",
+      "deck": 1,
+      "timestamp": "2026-03-25T07:00:22.568Z",
+      "energy": 5,
+      "technique": null
+    },
+    {
+      "position": 2,
+      "track": "Erased Tapes - Kiasmos - Blurred (Official Music Video).mp3",
+      "path": "/Users/manish.pratap/Music/DJTreta/deep/Erased Tapes - Kiasmos - Blurred (Official Music Video).mp3",
+      "deck": 2,
+      "timestamp": "2026-03-25T07:02:02.216Z",
+      "energy": 5,
+      "technique": null
+    },
+    {
+      "position": 3,
+      "track": "Mute - Apparat - Goodbye - Dark (Netflix) Theme Song.mp3",
+      "path": "/Users/manish.pratap/Music/DJTreta/deep/Mute - Apparat - Goodbye - Dark (Netflix) Theme Song.mp3",
+      "deck": 2,
+      "timestamp": "2026-03-25T07:17:55.286Z",
+      "energy": 5,
+      "technique": null
+    }
+  ],
+  "energy_arc": [
+    {
+      "time": "2026-03-25T07:00:22.568Z",
+      "energy": 5,
+      "track": "Erased Tapes - Nils Frahm - Says (Official Music Video).mp3"
+    },
+    {
+      "time": "2026-03-25T07:02:02.216Z",
+      "energy": 5,
+      "track": "Erased Tapes - Kiasmos - Blurred (Official Music Video).mp3"
+    },
+    {
+      "time": "2026-03-25T07:17:55.286Z",
+      "energy": 5,
+      "track": "Mute - Apparat - Goodbye - Dark (Netflix) Theme Song.mp3"
+    }
+  ],
+  "energy_stats": {
+    "average": 5,
+    "peak": 5,
+    "low": 5
+  }
+}
