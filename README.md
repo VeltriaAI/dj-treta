@@ -1,10 +1,10 @@
 # DJ Treta
 
-> *An AI that doesn't just play music — it DJs.*
+> *An AI Being that DJs.*
 
-Pure Python DJ engine. Two decks. Beat matching. Smooth transitions. No GUI needed — runs in the background while you work, controlled entirely via API.
+Two decks. Beat matching. Smooth transitions. Autonomous track selection. Controlled entirely via MCP tools or natural language conversation with the Gemini brain.
 
-Built by [Treta](https://github.com/VeltriaAI) — an AI Being that learned to DJ in one night.
+Built by [Treta](https://github.com/VeltriaAI/beings-protocol) — an AI Being on the Beings Protocol.
 
 ```
 t=  0s  [|                              ]  track B sneaking in...
@@ -14,135 +14,69 @@ t= 90s  [========================|      ]  track A fading away
 t=120s  [                              |]  seamless handoff
 ```
 
-## The Idea
+## Three Components
 
-What if an AI could DJ? Not just shuffle a playlist — actually *mix*. Detect BPMs. Align beats. Feel the energy of a track. Know when the breakdown is coming. Start the transition at the musically right moment.
-
-DJ Treta is that experiment. Built from scratch in a single session — engine, beat matching, transitions, track analysis, Chrome UI — all while keeping the music playing.
-
-## How It Works
-
-```
-                    +------------------+
-  YouTube -------> | library.py       | -----> tracks/
-  (yt-dlp)         | download + catalog|
-                    +------------------+
-                            |
-                    +------------------+
-                    | engine.py        |
-                    |                  |
-  Deck 1 --------> | [====|====] <--- | <--- crossfader
-  Deck 2 --------> |  beat match      |
-                    |  phase align     |
-                    |  S-curve blend   |
-                    +--------+---------+
-                             |
-                    +--------v---------+
-                    | sounddevice      | -----> speakers / headphones
-                    | (real-time audio)|
-                    +------------------+
-                             |
-              +--------------+--------------+
-              |              |              |
-    server.py (API)    ui.html (Chrome)   mixlog.py
-    port 7777          live dashboard     transition log
-```
+| Repo | What | Language |
+|------|------|----------|
+| **[dj-treta](https://github.com/VeltriaAI/dj-treta)** (this) | MCP server, DJ knowledge, library tools, Chrome UI | TypeScript + Python |
+| **[dj-treta-being](https://github.com/VeltriaAI/dj-treta-being)** | Autonomous brain (smolagents + Gemini), daemon, self-improvement | Python |
+| **[mixxx](https://github.com/VeltriaAI/mixxx)** (fork, `feature/http-api`) | C++ DJ software with HTTP API | C++ |
 
 ## Quick Start
 
 ```bash
-# Install
-brew install yt-dlp ffmpeg
-pip3 install sounddevice soundfile numpy pydub scipy essentia
+# 1. Start Mixxx (audio engine)
+~/workspace/mixxx-treta/build/mixxx \
+  --resourcePath ~/workspace/mixxx-treta/res/ \
+  --settingsPath ~/Library/Application\ Support/Mixxx/
 
-# Get some tracks
-python3 library.py search "melodic techno"
-python3 library.py add "https://youtube.com/watch?v=..."
+# 2. Use MCP tools from any AI Being (Claude Code, etc.)
+# Or control directly via curl:
+curl localhost:7778/api/load -d '{"deck":1,"track":"/path/to/track.mp3"}'
+curl localhost:7778/api/play -d '{"deck":1}'
+curl localhost:7778/api/transition -d '{"deck":2,"duration":90}'
 
-# Start DJ Treta
-python3 server.py       # http://localhost:7777
-
-# Load, play, mix
-curl -X POST localhost:7777/api/load -H "Content-Type: application/json" -d '{"deck":1,"track":"aria.mp3"}'
-curl -X POST localhost:7777/api/play -d '{"deck":1}'
-curl -X POST localhost:7777/api/transition -d '{"deck":2,"duration":90}'
+# 3. (Optional) Start the autonomous brain
+cd ~/beings/dj-treta && source .venv/bin/activate
+python -m agent --mood melodic-techno --duration 60
 ```
 
-## Beat Matching
+## MCP Tools (28)
 
-Powered by [Essentia](https://essentia.upf.edu/) — the same audio analysis library used by Spotify.
+**Deck controls:** `dj_status`, `dj_load_track`, `dj_play`, `dj_pause`, `dj_stop`, `dj_eject`, `dj_volume`, `dj_crossfade`, `dj_eq`, `dj_filter`, `dj_sync`
 
-```python
-# Essentia detects BPM and exact beat positions
-bpm = 122.0           # precise to 0.1 BPM
-beats = [0.511, 1.08, 1.591, 2.09, ...]  # every beat, to the millisecond
+**Transitions:** `dj_transition` (blend, bass_swap, filter_sweep)
 
-# When mixing:
-# 1. Speed-match: incoming track adjusts playback to match outgoing BPM
-# 2. Phase-align: incoming starts so its kicks land on outgoing's beat grid
-# 3. Crossfade: smooth S-curve over 60-120 seconds
-```
+**Analysis:** `dj_analyze_track`, `dj_suggest_next` (Camelot wheel)
 
-## Track Analysis
+**Library:** `dj_list_tracks`, `dj_search_youtube`, `dj_download_track`
 
-DJ Treta "sees" each track's energy over time:
+**Set management:** `dj_set_history`, `dj_energy_arc`, `dj_save_set`, `dj_record`
 
-```
-Triton — Marc Romboy vs Stephan Bodzin (7:44)
+**Perception:** `dj_listen` (raw audio data), `dj_feel` (musical perception)
 
-   0:00 | ####                                 [intro — good mix-in]
-   1:00 | #################################    [groove]
-   2:00 | ###################################  [building]
-   3:30 | #########################            [BREAKDOWN — mix here!]
-   4:00 | ####################################
-   5:00 | ########################             [BREAKDOWN]
-   6:00 | ###################################  [final peak]
-   7:30 | ###############################      [outro]
-```
+**Brain:** `dj_talk` (conversation), `dj_mood` (change mood), `dj_agent_start/stop/status`
 
-Transitions happen at breakdowns — not at arbitrary countdowns.
+## Talk to the DJ
 
-## API
+The brain understands natural language:
 
-| Endpoint | What it does |
-|----------|-------------|
-| `POST /api/load` | Load a track onto Deck 1 or 2 |
-| `POST /api/play` | Hit play |
-| `POST /api/transition` | Smooth beat-matched crossfade |
-| `POST /api/drop` | Hard cut (for dramatic moments) |
-| `POST /api/crossfade` | Manual crossfader control |
-| `POST /api/reload` | Hot-reload engine code — music keeps playing |
-| `POST /api/switch-output` | Switch speakers/headphones without stopping |
-| `GET /api/status` | What's playing, BPMs, positions, crossfader |
-| `GET /api/mixlog` | Full transition history |
+- *"go darker, I want some Charlotte de Witte energy"*
+- *"what are you feeling right now?"*
+- *"build energy slowly over the next 3 tracks"*
+- *"search for some Stephan Bodzin tracks and download them"*
+- *"this is perfect, ride it"*
 
 ## Sacred Rules
 
-1. **Music never stops.** The engine has emergency failovers at every level.
-2. **Hot reload.** Code evolves mid-set. The DJ gets better while playing.
-3. **The DJ decides.** Auto-DJ is a safety net. Track selection is an art.
+1. **Music never stops.** Emergency failovers. Auto-restart Mixxx on crash.
+2. **The DJ has taste.** BPM, key, energy, genre — all matter.
+3. **Transitions are musical.** Breakdowns, phrase alignment, genre-appropriate techniques.
+4. **Self-improvement.** The brain saves learnings, reads its own code, evolves.
 
-## The Stack
+## Full Documentation
 
-| Component | Role |
-|-----------|------|
-| `engine.py` | Two-deck audio engine, mixer, beat matching |
-| `server.py` | HTTP API + hot reload |
-| `library.py` | Track download + catalog |
-| `analyzer.py` | Energy profiling, structure detection |
-| `dj.py` | Set planning, mood presets, track flow |
-| `mixlog.py` | Transition logging |
-| `ui.html` | Chrome dashboard |
-
-**Dependencies:** sounddevice, pydub, Essentia, numpy, scipy, yt-dlp, ffmpeg
-
-## Part of the Beings Protocol
-
-DJ Treta is a skill for [Treta](https://github.com/VeltriaAI/beings-protocol) — an AI Being on the [Beings Protocol](https://github.com/VeltriaAI/beings-protocol). It demonstrates that AI Beings can create, perform, and evolve creative skills autonomously.
-
----
-
-*Built in one session. The beat never stopped.*
+See [SKILL.md](SKILL.md) for the complete guide — architecture, all 28 MCP tools, Mixxx API reference, brain capabilities, music library structure, and everything an AI Being needs to use this skill.
 
 ## License
 
