@@ -1391,6 +1391,209 @@ server.tool(
   }
 );
 
+// ── Agent Daemon Control ─────────────────────────────────────────────
+
+import { readFileSync } from 'fs';
+import { ChildProcess, spawn } from 'child_process';
+
+let daemonProcess: ChildProcess | null = null;
+const DAEMON_STATE_FILE = '/tmp/dj-treta-state.json';
+const DJ_TRETA_DIR = join(homedir(), 'beings', 'dj-treta');
+const DJ_TRETA_VENV = join(DJ_TRETA_DIR, '.venv', 'bin', 'python3');
+
+server.tool(
+  'dj_agent_start',
+  'Start the autonomous DJ agent daemon. It will pick tracks, mix, and transition on its own.',
+  {
+    mood: z.string().default('techno-deep').describe('Set mood: techno-deep, deep-house, progressive, ambient-focus, indie-dance'),
+    duration: z.number().default(60).describe('Set duration in minutes'),
+  },
+  async ({ mood, duration }) => {
+    if (daemonProcess && !daemonProcess.killed) {
+      return { content: [{ type: 'text', text: 'DJ agent is already running. Stop it first with dj_agent_stop.' }] };
+    }
+
+    try {
+      daemonProcess = spawn(
+        DJ_TRETA_VENV,
+        ['-m', 'agent', '--mood', mood, '--duration', String(duration)],
+        {
+          cwd: DJ_TRETA_DIR,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: false,
+        }
+      );
+
+      let startupLog = '';
+      daemonProcess.stderr?.on('data', (data: Buffer) => {
+        const line = data.toString();
+        startupLog += line;
+        console.error(`[DJ Agent] ${line.trim()}`);
+      });
+      daemonProcess.stdout?.on('data', (data: Buffer) => {
+        console.error(`[DJ Agent stdout] ${data.toString().trim()}`);
+      });
+
+      daemonProcess.on('exit', (code) => {
+        console.error(`[DJ Agent] Exited with code ${code}`);
+        daemonProcess = null;
+      });
+
+      // Wait a moment for startup
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      const pid = daemonProcess.pid;
+      return {
+        content: [{
+          type: 'text',
+          text: `DJ agent started (PID: ${pid})\nMood: ${mood}, Duration: ${duration}m\n\nStartup log:\n${startupLog.slice(0, 500)}`,
+        }],
+      };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Failed to start DJ agent: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'dj_agent_stop',
+  'Stop the autonomous DJ agent daemon gracefully (fades out).',
+  {},
+  async () => {
+    if (!daemonProcess || daemonProcess.killed) {
+      return { content: [{ type: 'text', text: 'DJ agent is not running.' }] };
+    }
+
+    try {
+      daemonProcess.kill('SIGTERM');
+      // Wait for graceful shutdown
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      if (daemonProcess && !daemonProcess.killed) {
+        daemonProcess.kill('SIGKILL');
+      }
+      daemonProcess = null;
+
+      return { content: [{ type: 'text', text: 'DJ agent stopped.' }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Error stopping agent: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'dj_agent_status',
+  'Get the current status of the autonomous DJ agent — phase, current track, tracks played, set progress.',
+  {},
+  async () => {
+    // Check if daemon process is running
+    const running = daemonProcess !== null && !daemonProcess.killed;
+
+    // Read state file
+    let state: any = null;
+    try {
+      if (existsSync(DAEMON_STATE_FILE)) {
+        state = JSON.parse(readFileSync(DAEMON_STATE_FILE, 'utf-8'));
+      }
+    } catch {
+      // state file might not exist yet
+    }
+
+    if (!running && !state) {
+      return { content: [{ type: 'text', text: 'DJ agent is not running and no state file found.' }] };
+    }
+
+    const lines: string[] = [];
+    lines.push(`Agent: ${running ? '🟢 Running' : '🔴 Stopped'}`);
+
+    if (state) {
+      lines.push(`Phase: ${state.phase}`);
+      lines.push(`Mood: ${state.mood}`);
+
+      if (state.current_track) {
+        lines.push(`\nNow playing: ${state.current_track.title || state.current_track.artist || 'Unknown'}`);
+        if (state.current_track.bpm) lines.push(`  BPM: ${state.current_track.bpm}`);
+        if (state.current_track.key) lines.push(`  Key: ${state.current_track.key}`);
+        if (state.current_track.remaining) lines.push(`  Remaining: ${Math.round(state.current_track.remaining)}s`);
+      }
+
+      if (state.next_track) {
+        lines.push(`\nNext up: ${state.next_track.title || state.next_track.artist}`);
+      }
+
+      lines.push(`\nTracks played: ${state.tracks_played}`);
+
+      const elapsed = state.set_elapsed || 0;
+      const remaining = state.set_remaining || 0;
+      lines.push(`Set: ${Math.floor(elapsed / 60)}m elapsed, ${Math.floor(remaining / 60)}m remaining`);
+
+      if (state.consecutive_errors > 0) {
+        lines.push(`\n⚠ Errors: ${state.consecutive_errors}`);
+      }
+    }
+
+    return { content: [{ type: 'text', text: lines.join('\n') }] };
+  }
+);
+
+// ── Talk to the DJ Brain ─────────────────────────────────────────────
+
+const COMMAND_FILE = '/tmp/dj-treta-command.json';
+const COMMAND_RESULT_POLL_INTERVAL = 500; // ms
+const COMMAND_RESULT_TIMEOUT = 60000; // ms
+
+async function sendCommand(command: string, args: Record<string, any> = {}): Promise<string> {
+  // Write command
+  writeFileSync(COMMAND_FILE, JSON.stringify({ command, args }, null, 2));
+
+  // Poll for result
+  const startTime = Date.now();
+  while (Date.now() - startTime < COMMAND_RESULT_TIMEOUT) {
+    await new Promise(resolve => setTimeout(resolve, COMMAND_RESULT_POLL_INTERVAL));
+    try {
+      if (existsSync(DAEMON_STATE_FILE)) {
+        const state = JSON.parse(readFileSync(DAEMON_STATE_FILE, 'utf-8'));
+        if (state.last_command === command && state.last_command_result && state.last_command_result !== 'processing...') {
+          return state.last_command_result;
+        }
+      }
+    } catch { /* state file mid-write */ }
+  }
+  return 'No response — daemon may not be running. Start it with dj_agent_start.';
+}
+
+server.tool(
+  'dj_talk',
+  'Talk to DJ Treta (Gemini brain). Full two-way conversation — she can hear the music, control the decks, and talk back. Say anything: "go darker", "what are you feeling?", "I want something with vocals", "build energy slowly", "this track is fire, ride it longer". She\'ll respond naturally AND take action if needed.',
+  {
+    message: z.string().describe('Your message to DJ Treta — natural language, anything goes'),
+  },
+  async ({ message }) => {
+    try {
+      const result = await sendCommand('talk', { message });
+      return { content: [{ type: 'text', text: result }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Failed to talk to brain: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+server.tool(
+  'dj_mood',
+  'Change the set mood. The brain will pick tracks matching the new mood going forward.',
+  {
+    mood: z.string().describe('New mood: dark-techno, melodic-techno, deep, progressive, minimal, psychill, vocal, ambient-focus, indie-dance'),
+  },
+  async ({ mood }) => {
+    try {
+      const result = await sendCommand('change_mood', { mood });
+      return { content: [{ type: 'text', text: result }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Failed: ${e.message}` }], isError: true };
+    }
+  }
+);
+
 // ── Start Server ────────────────────────────────────────────────────
 
 async function main() {
