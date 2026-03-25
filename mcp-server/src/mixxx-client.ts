@@ -42,6 +42,27 @@ export interface MixxxStatus {
   deck2: DeckStatus;
 }
 
+export interface DeckLive {
+  playing: boolean;
+  bpm: number;
+  beat_active: boolean;
+  beat_distance: number;
+  playposition: number;
+  volume: number;
+  vu_left: number;
+  vu_right: number;
+  peak_indicator: boolean;
+}
+
+export interface LiveData {
+  timestamp: number;
+  crossfader: number;
+  master_vu_left: number;
+  master_vu_right: number;
+  deck1: DeckLive;
+  deck2: DeckLive;
+}
+
 export class MixxxClient {
   private http: AxiosInstance;
   private baseUrl: string;
@@ -140,6 +161,13 @@ export class MixxxClient {
   async getControl(group: string, key: string): Promise<number> {
     const { data } = await this.http.get('/api/control', { params: { group, key } });
     return data.value ?? 0;
+  }
+
+  // ── Live Audio Data ──────────────────────────────────────────────
+
+  async getLive(): Promise<LiveData> {
+    const { data } = await this.http.get('/api/live');
+    return data;
   }
 
   // ── Health Check ────────────────────────────────────────────────

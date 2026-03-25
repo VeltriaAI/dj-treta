@@ -9,7 +9,8 @@
  *        dj_crossfade, dj_transition, dj_sync, dj_eq, dj_filter,
  *        dj_volume, dj_status, dj_analyze_track, dj_list_tracks,
  *        dj_suggest_next, dj_search_youtube, dj_download_track,
- *        dj_set_history, dj_record, dj_energy_arc, dj_save_set
+ *        dj_set_history, dj_record, dj_energy_arc, dj_save_set,
+ *        dj_listen, dj_feel
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -989,6 +990,404 @@ server.tool(
         ].join('\n'),
       }],
     };
+  }
+);
+
+// ── Listening Engine State ────────────────────────────────────────
+
+interface LiveReading {
+  timestamp: number;
+  crossfader: number;
+  master_vu_left: number;
+  master_vu_right: number;
+  deck1: { playing: boolean; bpm: number; beat_active: boolean; beat_distance: number; playposition: number; volume: number; vu_left: number; vu_right: number; peak_indicator: boolean };
+  deck2: { playing: boolean; bpm: number; beat_active: boolean; beat_distance: number; playposition: number; volume: number; vu_left: number; vu_right: number; peak_indicator: boolean };
+  localTime: number;
+}
+
+const LISTEN_BUFFER_SIZE = 300; // 30 seconds at 10Hz
+const listenHistory: LiveReading[] = [];
+
+function addListenReading(reading: LiveReading) {
+  listenHistory.push(reading);
+  if (listenHistory.length > LISTEN_BUFFER_SIZE) {
+    listenHistory.splice(0, listenHistory.length - LISTEN_BUFFER_SIZE);
+  }
+}
+
+function deckPresence(deck: LiveReading['deck1'], crossfader: number, deckNum: number): number {
+  if (!deck.playing) return 0;
+  const vu = (deck.vu_left + deck.vu_right) / 2;
+  const vol = deck.volume;
+  const cfWeight = deckNum === 1
+    ? Math.max(0, 1 - Math.max(0, crossfader))
+    : Math.max(0, 1 + Math.min(0, crossfader));
+  return vu * vol * cfWeight;
+}
+
+function analyzeListenData(): {
+  energy: number;
+  energyDirection: string;
+  beatPhase: string;
+  tension: number;
+  density: number;
+  mood: string;
+  transitionReady: boolean;
+  breakdownDetected: boolean;
+  buildupDetected: boolean;
+  dropDetected: boolean;
+  activeDeck: number;
+  masterLoudness: number;
+} {
+  const result = {
+    energy: 0,
+    energyDirection: 'steady',
+    beatPhase: 'unknown',
+    tension: 0,
+    density: 0,
+    mood: 'silent',
+    transitionReady: false,
+    breakdownDetected: false,
+    buildupDetected: false,
+    dropDetected: false,
+    activeDeck: 0,
+    masterLoudness: 0,
+  };
+
+  if (listenHistory.length < 2) return result;
+
+  const latest = listenHistory[listenHistory.length - 1];
+
+  // Master loudness
+  const masterLoud = (latest.master_vu_left + latest.master_vu_right) / 2;
+  result.masterLoudness = Math.round(masterLoud * 1000) / 1000;
+
+  // Active deck
+  const d1p = deckPresence(latest.deck1, latest.crossfader, 1);
+  const d2p = deckPresence(latest.deck2, latest.crossfader, 2);
+  result.activeDeck = d1p >= d2p ? 1 : 2;
+
+  // Energy from VU over last 5 seconds (50 readings)
+  const window5s = Math.min(listenHistory.length, 50);
+  let vuSum = 0;
+  for (let i = 0; i < window5s; i++) {
+    const r = listenHistory[listenHistory.length - 1 - i];
+    vuSum += (r.master_vu_left + r.master_vu_right) / 2;
+  }
+  const avgVu = vuSum / window5s;
+  result.energy = Math.round(Math.min(10, Math.max(0, avgVu * 12)) * 10) / 10;
+
+  // Energy direction: compare last 1s vs previous 1s
+  if (listenHistory.length >= 20) {
+    const recent10 = listenHistory.slice(-10);
+    const prev10 = listenHistory.slice(-20, -10);
+    const recentAvg = recent10.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 10;
+    const prevAvg = prev10.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 10;
+    const delta = recentAvg - prevAvg;
+
+    // Check for sustained building/dropping over 10s
+    if (listenHistory.length >= 100) {
+      const early50 = listenHistory.slice(-100, -50);
+      const late50 = listenHistory.slice(-50);
+      const earlyAvg = early50.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 50;
+      const lateAvg = late50.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 50;
+      const longDelta = (lateAvg - earlyAvg) * 12;
+      if (longDelta > 1.5) result.energyDirection = 'building';
+      else if (longDelta < -1.5) result.energyDirection = 'dropping';
+      else if (delta > 0.04) result.energyDirection = 'rising';
+      else if (delta < -0.04) result.energyDirection = 'falling';
+      else result.energyDirection = 'steady';
+    } else {
+      if (delta > 0.04) result.energyDirection = 'rising';
+      else if (delta < -0.04) result.energyDirection = 'falling';
+      else result.energyDirection = 'steady';
+    }
+  }
+
+  // Beat phase
+  const activeDeck = result.activeDeck === 1 ? latest.deck1 : latest.deck2;
+  if (!activeDeck.playing || activeDeck.bpm <= 0) {
+    result.beatPhase = 'silent';
+  } else if (activeDeck.beat_active) {
+    result.beatPhase = 'kick';
+  } else if (activeDeck.beat_distance > 0.4 && activeDeck.beat_distance < 0.6) {
+    result.beatPhase = 'offbeat';
+  } else {
+    result.beatPhase = 'between';
+  }
+
+  // Breakdown detection: energy drops >40% in 2s
+  if (listenHistory.length >= 40) {
+    const recent20 = listenHistory.slice(-20);
+    const prev20 = listenHistory.slice(-40, -20);
+    const recentE = recent20.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 20 * 12;
+    const prevE = prev20.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 20 * 12;
+    if (prevE > 2 && recentE < prevE * 0.6) {
+      result.breakdownDetected = true;
+    }
+  }
+
+  // Buildup
+  if (result.energyDirection === 'building') result.buildupDetected = true;
+
+  // Drop detection: sudden spike after quiet
+  if (listenHistory.length >= 10) {
+    const veryRecent = listenHistory.slice(-5);
+    const justBefore = listenHistory.slice(-10, -5);
+    const vrAvg = veryRecent.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 5 * 12;
+    const jbAvg = justBefore.reduce((s, r) => s + (r.master_vu_left + r.master_vu_right) / 2, 0) / 5 * 12;
+    if (jbAvg < 3 && vrAvg > jbAvg + 3) result.dropDetected = true;
+  }
+
+  // Density
+  if (listenHistory.length >= 5) {
+    const dWindow = Math.min(listenHistory.length, 50);
+    const vus: number[] = [];
+    for (let i = 0; i < dWindow; i++) {
+      const r = listenHistory[listenHistory.length - 1 - i];
+      vus.push((r.master_vu_left + r.master_vu_right) / 2);
+    }
+    const mean = vus.reduce((a, b) => a + b, 0) / vus.length;
+    if (mean > 0.01) {
+      const variance = vus.reduce((s, v) => s + (v - mean) ** 2, 0) / vus.length;
+      const cv = Math.sqrt(variance) / mean;
+      result.density = Math.round(Math.min(10, Math.max(0, (1 - cv) * 10)) * 10) / 10;
+    }
+  }
+
+  // Tension
+  let tension = 0;
+  if (result.buildupDetected) tension += 4;
+  if (result.energyDirection === 'rising' || result.energyDirection === 'building') tension += 2;
+  if (result.density > 7 && result.energy > 7) tension += 2;
+  if (result.breakdownDetected) tension += 3;
+  if (latest.deck1.peak_indicator || latest.deck2.peak_indicator) tension += 1;
+  result.tension = Math.min(10, tension);
+
+  // Mood
+  const bpm = activeDeck.bpm;
+  if (bpm <= 0) {
+    result.mood = 'silent';
+  } else if (result.energy < 3) {
+    result.mood = bpm < 120 ? 'melancholic' : 'dark';
+  } else if (result.energy > 7) {
+    result.mood = bpm >= 128 ? 'euphoric' : 'driving';
+  } else if (result.density > 7 && result.energy > 5) {
+    result.mood = 'hypnotic';
+  } else if (bpm < 100) {
+    result.mood = 'chill';
+  } else if (bpm < 120) {
+    result.mood = 'dreamy';
+  } else if (bpm < 128) {
+    result.mood = 'groovy';
+  } else if (bpm < 135) {
+    result.mood = 'driving';
+  } else if (bpm < 145) {
+    result.mood = 'energetic';
+  } else {
+    result.mood = 'intense';
+  }
+
+  // Transition readiness
+  if (result.buildupDetected || result.dropDetected || result.energyDirection === 'rising') {
+    result.transitionReady = false;
+  } else if (result.breakdownDetected) {
+    result.transitionReady = true;
+  } else if (result.energyDirection === 'falling' || result.energyDirection === 'dropping') {
+    result.transitionReady = true;
+  } else if (result.energyDirection === 'steady' && result.energy < 5) {
+    result.transitionReady = true;
+  }
+
+  return result;
+}
+
+async function pollAndAnalyze(): Promise<ReturnType<typeof analyzeListenData>> {
+  // Poll multiple times (5 readings over 0.5s) for better analysis
+  for (let i = 0; i < 5; i++) {
+    try {
+      const live = await mixxx.getLive();
+      addListenReading({
+        ...live,
+        localTime: Date.now(),
+      });
+    } catch {
+      // skip failed reads
+    }
+    if (i < 4) await sleep(100);
+  }
+  return analyzeListenData();
+}
+
+// ── Tool: dj_listen ──────────────────────────────────────────────
+
+server.tool(
+  'dj_listen',
+  'Real-time musical perception — energy level, direction, mood, beat phase, transition readiness. This is how the DJ "hears" what\'s playing.',
+  {},
+  async () => {
+    try {
+      const analysis = await pollAndAnalyze();
+
+      const energyBar = '\u2588'.repeat(Math.round(analysis.energy)) + '\u2591'.repeat(10 - Math.round(analysis.energy));
+      const tensionBar = '\u2588'.repeat(Math.round(analysis.tension)) + '\u2591'.repeat(10 - Math.round(analysis.tension));
+      const densityBar = '\u2588'.repeat(Math.round(analysis.density)) + '\u2591'.repeat(10 - Math.round(analysis.density));
+
+      const flags: string[] = [];
+      if (analysis.breakdownDetected) flags.push('BREAKDOWN');
+      if (analysis.buildupDetected) flags.push('BUILDUP');
+      if (analysis.dropDetected) flags.push('DROP');
+      if (analysis.transitionReady) flags.push('TRANSITION-READY');
+
+      const lines = [
+        `DJ Treta — Live Perception`,
+        ``,
+        `Energy:    [${energyBar}] ${analysis.energy.toFixed(1)}/10  (${analysis.energyDirection})`,
+        `Tension:   [${tensionBar}] ${analysis.tension}/10`,
+        `Density:   [${densityBar}] ${analysis.density}/10`,
+        `Mood:      ${analysis.mood}`,
+        `Beat:      ${analysis.beatPhase}`,
+        `Active:    Deck ${analysis.activeDeck}`,
+        `Master VU: ${(analysis.masterLoudness * 100).toFixed(0)}%`,
+      ];
+
+      if (flags.length > 0) {
+        lines.push(``, `Flags: ${flags.join(' | ')}`);
+      }
+
+      // Suggest action
+      let suggestion = '';
+      if (analysis.dropDetected) {
+        suggestion = 'DROP just happened! Ride the energy peak.';
+      } else if (analysis.buildupDetected) {
+        suggestion = 'BUILDUP in progress — don\'t interrupt, let it peak.';
+      } else if (analysis.breakdownDetected) {
+        suggestion = 'BREAKDOWN — perfect time to start bringing in the next track.';
+      } else if (analysis.energyDirection === 'falling' || analysis.energyDirection === 'dropping') {
+        suggestion = 'Energy dipping — good window for a transition.';
+      } else if (analysis.energy > 8 && analysis.energyDirection === 'steady') {
+        suggestion = 'Peak energy, locked in. Ride it.';
+      } else if (analysis.energyDirection === 'rising' || analysis.energyDirection === 'building') {
+        suggestion = 'Energy climbing — let it build naturally.';
+      } else if (analysis.transitionReady) {
+        suggestion = 'Good moment for a transition.';
+      } else {
+        suggestion = 'Cruising. Steady state.';
+      }
+      lines.push(``, `Suggestion: ${suggestion}`);
+
+      return { content: [{ type: 'text', text: lines.join('\n') }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Listening failed: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// ── Tool: dj_feel ────────────────────────────────────────────────
+
+server.tool(
+  'dj_feel',
+  'An emotional, human-readable description of what\'s happening musically right now — how the music feels, not just numbers.',
+  {},
+  async () => {
+    try {
+      const analysis = await pollAndAnalyze();
+
+      // Get track info for context
+      let deck1Name = 'unknown';
+      let deck2Name = 'unknown';
+      try {
+        const status = await mixxx.getStatus();
+        if (status.deck1.track_loaded) {
+          deck1Name = `Deck 1 track`;
+        }
+        if (status.deck2.track_loaded) {
+          deck2Name = `Deck 2 track`;
+        }
+      } catch { /* non-critical */ }
+
+      // Build a poetic description
+      const parts: string[] = [];
+
+      // What's playing
+      const activeDeckLabel = `Deck ${analysis.activeDeck}`;
+      const bpm = analysis.activeDeck === 1
+        ? listenHistory[listenHistory.length - 1]?.deck1?.bpm ?? 0
+        : listenHistory[listenHistory.length - 1]?.deck2?.bpm ?? 0;
+
+      if (analysis.mood === 'silent') {
+        parts.push('Silence. Nothing playing. The room is waiting.');
+        return { content: [{ type: 'text', text: parts.join('\n') }] };
+      }
+
+      // Energy description
+      const energyWords: Record<string, string> = {
+        'rising': 'building momentum',
+        'falling': 'gently descending',
+        'steady': 'holding steady',
+        'building': 'steadily building, layer by layer',
+        'dropping': 'winding down',
+      };
+      const energyDesc = energyWords[analysis.energyDirection] || 'moving';
+
+      // Mood-based opening
+      const moodOpeners: Record<string, string> = {
+        'melancholic': 'A wistful atmosphere hangs in the air',
+        'euphoric': 'Pure euphoria — the room is electric',
+        'dark': 'Dark textures pulse through the speakers',
+        'dreamy': 'Ethereal layers float and shimmer',
+        'driving': 'A relentless groove drives forward',
+        'chill': 'Gentle waves of sound, unhurried and warm',
+        'groovy': 'A deep groove has the floor moving',
+        'hypnotic': 'Hypnotic patterns loop and evolve',
+        'energetic': 'High-octane energy fills every corner',
+        'intense': 'Raw intensity at maximum force',
+      };
+
+      const opener = moodOpeners[analysis.mood] || `The music moves at ${bpm.toFixed(0)} BPM`;
+      parts.push(`${opener}.`);
+
+      // Energy narrative
+      if (analysis.energy >= 8) {
+        parts.push(`Energy at ${analysis.energy.toFixed(0)}/10 — ${energyDesc}. This is the peak zone.`);
+      } else if (analysis.energy >= 5) {
+        parts.push(`Energy at ${analysis.energy.toFixed(0)}/10, ${energyDesc}. Good presence in the room.`);
+      } else if (analysis.energy >= 2) {
+        parts.push(`Energy at ${analysis.energy.toFixed(0)}/10, ${energyDesc}. Intimate, restrained.`);
+      } else {
+        parts.push(`Very low energy (${analysis.energy.toFixed(0)}/10). Almost ambient.`);
+      }
+
+      // Structural events
+      if (analysis.dropDetected) {
+        parts.push('THE DROP just hit. Everything came crashing back in. Let it ride.');
+      } else if (analysis.buildupDetected) {
+        parts.push('A buildup is in progress — tension accumulating, the crowd can feel it coming. Hold steady.');
+      } else if (analysis.breakdownDetected) {
+        parts.push('A breakdown — the bass has fallen away, leaving space and anticipation. Perfect moment to begin a blend.');
+      }
+
+      // Density texture
+      if (analysis.density > 7) {
+        parts.push('The sound is thick and full — every frequency occupied.');
+      } else if (analysis.density < 3 && analysis.energy > 2) {
+        parts.push('Sparse and open — lots of space between the elements.');
+      }
+
+      // Transition advice woven in naturally
+      if (analysis.transitionReady && !analysis.breakdownDetected) {
+        parts.push('The energy is in a calm pocket — a natural opening for the next track.');
+      } else if (analysis.buildupDetected) {
+        parts.push('Not the time to change anything. Let this moment complete itself.');
+      }
+
+      // BPM context
+      parts.push(`\nBPM: ${bpm.toFixed(0)} | ${activeDeckLabel} | Mood: ${analysis.mood}`);
+
+      return { content: [{ type: 'text', text: parts.join('\n') }] };
+    } catch (e: any) {
+      return { content: [{ type: 'text', text: `Can't feel the music: ${e.message}` }], isError: true };
+    }
   }
 );
 
